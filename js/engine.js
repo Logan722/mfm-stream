@@ -400,11 +400,26 @@
         Object.keys(map).forEach(function (k) {
           if (k !== "local") syncParticipant(map[k]);
         });
-        // Keep the program feed crisp — the stream takes this track as-is.
+        // QUALITY PASS (field test, July 30 2026): without this, Daily serves
+        // receivers a LOW simulcast layer of each camera — the canvas then
+        // upscales blur to 1080p. Ask for the highest layer of everyone.
+        requestHighLayers();
+        // And publish the program feed hot: 1080p30, up to 4.5 Mbps top layer
+        // (the stream takes this track as-is; costs upload on the engine machine).
         try {
-          call.updateSendSettings({ video: "quality-optimized" })
-            .catch(function () { /* defaults still stream */ });
-        } catch (e) { /* older daily-js — fine */ }
+          call.updateSendSettings({
+            video: {
+              encodings: {
+                low: { maxBitrate: 400000, scaleResolutionDownBy: 4, maxFramerate: 15 },
+                medium: { maxBitrate: 1400000, scaleResolutionDownBy: 2, maxFramerate: 30 },
+                high: { maxBitrate: 4500000, scaleResolutionDownBy: 1, maxFramerate: 30 },
+              },
+            },
+          }).catch(function () {
+            // Custom encodings rejected — fall back to the strongest preset.
+            return call.updateSendSettings({ video: "quality-optimized" }).catch(function () {});
+          });
+        } catch (e) { /* defaults still stream */ }
         startHeartbeat();
       })
       .on("participant-joined", function (ev) { syncParticipant(ev.participant); })
@@ -431,6 +446,22 @@
       showError("The engine could not join the room. Please try again.");
       teardown();
     });
+  }
+
+  /* Ask Daily for the top simulcast layer of every remote camera. Tries the
+     current receiveSettings shape first, then the older one. */
+  function requestHighLayers() {
+    var attempts = [
+      { base: { video: { maxSimulcastLayer: 2 } } },
+      { base: { video: { layer: 2 } } },
+    ];
+    function tryNext(i) {
+      if (!call || i >= attempts.length) return;
+      try {
+        call.updateReceiveSettings(attempts[i]).catch(function () { tryNext(i + 1); });
+      } catch (e) { tryNext(i + 1); }
+    }
+    tryNext(0);
   }
 
   function teardown() {

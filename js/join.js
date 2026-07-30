@@ -147,6 +147,11 @@
       token: grant.token,
       showLeaveButton: true,
       showFullscreenButton: true,
+      // Quality pass (July 2026): capture at 720p so the Program Engine has
+      // sharp pixels to composite — Daily still adapts down on weak networks.
+      dailyConfig: {
+        userMediaVideoConstraints: { width: { ideal: 1280 }, height: { ideal: 720 } },
+      },
       iframeStyle: {
         position: "absolute",
         inset: "0",
@@ -176,10 +181,18 @@
       endCall();
     });
 
-    callFrame.join().catch(function () {
-      showError("Could not join the room. Please try again.");
-      endCall();
-    });
+    callFrame.join()
+      .then(function () {
+        // Send the strongest simulcast layers the connection allows.
+        try {
+          callFrame.updateSendSettings({ video: "quality-optimized" })
+            .catch(function () { /* defaults are fine */ });
+        } catch (e) { /* older daily-js — fine */ }
+      })
+      .catch(function () {
+        showError("Could not join the room. Please try again.");
+        endCall();
+      });
   }
 
   function endCall() {

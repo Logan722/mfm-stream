@@ -347,11 +347,23 @@ the broadcast ourselves** (hybrid): we paint every pixel; Daily keeps doing tran
   session id, so the fix is End broadcast → Go Live again (re-lock). The **9:16 button is
   parked while the engine runs** (Daily's portrait layout mixes ALL room audio → doubled
   sound; the portrait engine canvas lands in E3).
+- **FIELD-PROVEN same day (July 30, 2026):** 3-person live test to YouTube — locked
+  stream, featured layout, real-font boxed card on the output, PROGRAM confidence tile
+  for the host, engine hidden from People. YouTube ingest reported "Excellent."
+- **Quality pass (same day, after the test — video was soft):** root cause: Daily serves
+  receivers a LOW simulcast layer by default, so the engine composited low-res frames and
+  upscaled blur. Fixes: engine requests the top layer of every camera
+  (`updateReceiveSettings` `maxSimulcastLayer: 2`, legacy `layer: 2` fallback); engine
+  publishes explicit encodings — 1080p30 up to 4.5 Mbps top layer (preset fallback);
+  participants + host capture at 720p (`userMediaVideoConstraints`) and send
+  `quality-optimized`. Remaining truth: quality is bounded by each camera and by the
+  ENGINE MACHINE's connection — it downloads everyone and uploads ~4.5 Mbps. Run the
+  engine on the strongest machine/connection available (it can be a different computer
+  than the console — any browser + the engine key). The E2 VPS removes this entirely.
 - **Operational notes:** keep the engine tab visible in its own window (background-tab
   throttling; the draw loop is interval-based and WebRTC pages are exempt from the worst
-  of it, but don't tempt it — the VPS in E2 removes this concern). Engine untested against
-  a real Daily room from the sandbox (WSS blocked) — first field test happens in Dawn's
-  browser. `/api/diag` stays for reference (remove in E3).
+  of it, but don't tempt it — the VPS in E2 removes this concern). `/api/diag` stays for
+  reference (remove in E3).
 
 ## Phased roadmap
 

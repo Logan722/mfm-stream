@@ -303,6 +303,10 @@
       token: grant.token,
       showLeaveButton: true,
       showFullscreenButton: true,
+      // Quality pass (July 2026): the host is on camera too — capture at 720p.
+      dailyConfig: {
+        userMediaVideoConstraints: { width: { ideal: 1280 }, height: { ideal: 720 } },
+      },
       iframeStyle: {
         position: "absolute",
         inset: "0",
@@ -437,10 +441,17 @@
         endCall();
       });
 
-    callFrame.join().catch(function () {
-      showError("Could not join the room. Please try again.");
-      endCall();
-    });
+    callFrame.join()
+      .then(function () {
+        try {
+          callFrame.updateSendSettings({ video: "quality-optimized" })
+            .catch(function () { /* defaults are fine */ });
+        } catch (e) { /* fine */ }
+      })
+      .catch(function () {
+        showError("Could not join the room. Please try again.");
+        endCall();
+      });
 
     renderScene();
   }
