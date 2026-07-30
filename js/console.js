@@ -92,8 +92,9 @@
   };
   var ppIdx = 0;
 
-  /* ---------- Stream instances ---------- */
-  var MAIN_ID = "a1a1a1a1-1111-4a11-8a11-a1a1a1a1a1a1"; // fixed UUIDs — Daily instance ids
+  /* ---------- Stream instances ----------
+     Main 16:9 = Daily's default instance (no explicit id).
+     Vertical 9:16 = a second instance with a fixed UUID. */
   var VERT_ID = "b2b2b2b2-2222-4b22-8b22-b2b2b2b2b2b2";
 
   var bc = { live: false, starting: false, startedAt: 0, timerId: null, confirmingEnd: null };
@@ -328,6 +329,13 @@
           bc.starting = false;
           panelError("Broadcast error: " + msg + " — check your stream key and try again.");
           onLiveStopped();
+        }
+      })
+      .on("nonfatal-error", function (ev) {
+        // Surface warnings Daily raises without killing the call (e.g. a
+        // rejected layout) — these were previously invisible.
+        if (ev && ev.type && /stream|layout|composition/i.test(ev.type + " " + (ev.errorMsg || ""))) {
+          panelError("Daily warning: " + (ev.errorMsg || ev.type));
         }
       })
       .on("left-meeting", endCall)
@@ -702,13 +710,15 @@
       persistState();
 
       try {
+        // Main 16:9 runs as the DEFAULT instance (no instanceId) for maximum
+        // compatibility; only the vertical stream uses an explicit instance.
         callFrame.startLiveStreaming({
-          instanceId: MAIN_ID,
           rtmpUrl: eps.length === 1 ? eps[0] : eps,
           width: 1920,
           height: 1080,
           layout: {
             preset: "custom",
+            composition_id: "daily:baseline", // REQUIRED — without it Daily discards the custom layout
             composition_params: compositionParams(),
           },
         });
@@ -726,7 +736,7 @@
     if (bc.confirmingEnd) {
       clearTimeout(bc.confirmingEnd);
       bc.confirmingEnd = null;
-      try { callFrame.stopLiveStreaming({ instanceId: MAIN_ID }); } catch (e) { onLiveStopped(); }
+      try { callFrame.stopLiveStreaming(); } catch (e) { onLiveStopped(); }
       els.goLiveBtn.textContent = "Ending…";
       els.goLiveBtn.disabled = true;
     } else {
@@ -742,10 +752,17 @@
     if (!callFrame || !bc.live) return;
     try {
       callFrame.updateLiveStreaming({
-        instanceId: MAIN_ID,
-        layout: { preset: "custom", composition_params: compositionParams() },
+        layout: {
+          preset: "custom",
+          composition_id: "daily:baseline",
+          composition_params: compositionParams(),
+        },
       });
-    } catch (e) { /* stream may be mid-transition; next change re-applies */ }
+      panelError("");
+    } catch (e) {
+      // Never fail silently — the host must know a push didn't reach the stream
+      panelError("Overlay/layout push failed: " + (e.message || e));
+    }
   }
 
   function onLiveStarted() {

@@ -118,6 +118,14 @@ browser (laptop or phone). Two views of the same app:
   LIVE badge + timer in the top bar.
 - All streams run on Daily's **VCS `custom` preset** so overlays (Phases 4–5) can be added
   live without restarting the stream. 1920×1080.
+- ⚠️ **Root cause of "overlays never reached the stream" (found July 2026 field test):**
+  the custom layout now requires **`composition_id: "daily:baseline"`** — without it Daily
+  silently discards the whole custom composition and falls back to a plain default layout
+  (no banner, no name labels). Always include it in `startLiveStreaming` AND every
+  `updateLiveStreaming`. The main 16:9 also runs as the **default instance** (no
+  `instanceId`) for compatibility; only the 9:16 uses an explicit instance id. Streaming
+  errors/warnings (`live-streaming-error`, `nonfatal-error`) surface in the Broadcast
+  panel — nothing fails silently.
 - **Layouts, switchable live:** Grid / Speaker (dominant) / Split / PiP.
 - **Feature (spotlight):** any participant can be locked full-screen on the stream
   (`videoSettings.preferredParticipantIds` + mode `single`); auto-releases if they leave.
@@ -139,9 +147,9 @@ browser (laptop or phone). Two views of the same app:
   once — the console has slots for **YouTube ch.1 + YouTube ch.2 + Facebook + custom
   RTMP**, all simultaneous, no Daily enablement needed. The instance limit only affects
   the SECOND composition (9:16 Instagram) — like OBS needing Aitum for a vertical output.
-- **WYSIWYG frame guide:** while a card is showing, a dashed 16:9 outline marks the
-  broadcast frame over the video area and the card pins to its bottom-left — the same
-  corner viewers see (the room view around it may letterbox; the outline is truth).
+- **WYSIWYG card position:** the card pins to the bottom-left of an invisible centered
+  16:9 frame (the broadcast frame) over the video area — same corner viewers see. The
+  dashed outline that visualized this frame was removed at Dawn's request (July 2026).
   Tag reads **ONLY YOU SEE THIS** off air, **LIVE** while broadcasting.
 
 ### Overlays (Phase 4 ✅ — lower thirds & prayer points)

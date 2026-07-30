@@ -448,8 +448,7 @@ body.deck-hidden .deck { display: none; }
   aspect-ratio: 16 / 9;
   z-index: 3;
   pointer-events: none;
-  border: 1px dashed rgba(201, 149, 44, 0.28);
-  border-radius: 4px;
+  /* invisible positioning container — outline removed at Dawn's request */
 }
 
 .live-card {
