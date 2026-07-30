@@ -168,6 +168,25 @@ browser (laptop or phone). Two views of the same app:
 - **Brand scriptures as one-tap buttons:** Jer 23:29, Deut 4:11, Jer 20:9, Obadiah 1:17
   (all four verified working against the API). Verses cached per session; Enter key works.
 
+### Media panel (July 2026)
+- Deck panel "Media — play a video": direct `.mp4`/`.m3u8` URL → Daily remote media
+  player (`startRemoteMediaPlayer`) — the video joins as its own tile for the room AND
+  the stream. Play / Pause / Resume / Stop; status + errors surfaced in the panel.
+- **No server-side volume knob exists** for the media player. Full-volume-control
+  alternative (documented in the panel): Share a browser tab playing the video with
+  "Also share tab audio" — the tab player's slider controls what everyone hears.
+- Per-participant volume rebalancing on the stream mix isn't a thing anywhere in the
+  compositor: each person's level = their mic. Tools: mute, coaching, mic distance.
+
+### ⚠️ OPEN INVESTIGATION — overlays still not applying (as of July 30, 2026)
+- Even with `composition_id`, a field test showed NO card/labels on the YouTube output.
+- Likely cause: Daily's **new VCS pipeline** (default for new customers since March
+  2026; legacy EOL summer 2026; `enable_legacy_compositor` flag exists). The domain
+  (created June 2026) is on the new pipeline; param support may differ.
+- **Diagnostic endpoint shipped:** `GET /api/diag?k=<HOST_KEY>&room=sanctuary`
+  (run while in the room, NOT broadcasting) returns domain config + Daily's verbatim
+  response to our exact custom layout. Next session: read that JSON, then fix per facts.
+
 ### Console layout (reworked July 2026 after field feedback)
 - **Production deck** along the bottom of the video: four side-by-side panels —
   Broadcast · Lower third · Prayer points · Scripture. "Deck" button collapses it for full video.

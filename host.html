@@ -150,6 +150,19 @@
           </section>
 
           <section class="deck-panel">
+            <p class="b-row-label">Media &mdash; play a video</p>
+            <input type="text" id="md-url" class="b-input" autocomplete="off"
+                   placeholder="Direct link to a video (.mp4 or .m3u8)">
+            <div class="b-modes mt8">
+              <button type="button" class="p-btn" id="md-play">Play</button>
+              <button type="button" class="p-btn" id="md-pause">Pause</button>
+              <button type="button" class="p-btn danger" id="md-stop">Stop</button>
+            </div>
+            <p class="b-hint" id="md-status">Plays for everyone in the room and on the stream, as its own tile.</p>
+            <p class="b-hint">Need a volume slider? Use <strong>Share</strong> instead: share a browser tab playing the video and tick &ldquo;Also share tab audio&rdquo; &mdash; the tab player&rsquo;s slider then controls what everyone hears.</p>
+          </section>
+
+          <section class="deck-panel">
             <p class="b-row-label">Scripture &mdash; KJV</p>
             <div class="b-modes" id="sc-brand">
               <button type="button" class="p-btn" data-ref="Jeremiah 23:29">Jer 23:29</button>

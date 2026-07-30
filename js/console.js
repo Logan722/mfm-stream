@@ -72,6 +72,11 @@
     ppPush: document.getElementById("pp-push"),
     ppNext: document.getElementById("pp-next"),
     ppHide: document.getElementById("pp-hide"),
+    mdUrl: document.getElementById("md-url"),
+    mdPlay: document.getElementById("md-play"),
+    mdPause: document.getElementById("md-pause"),
+    mdStop: document.getElementById("md-stop"),
+    mdStatus: document.getElementById("md-status"),
     scBrand: document.getElementById("sc-brand"),
     scInput: document.getElementById("sc-input"),
     scGo: document.getElementById("sc-go"),
@@ -148,6 +153,7 @@
     if (els.customOn && "customOn" in savedBc) els.customOn.checked = !!savedBc.customOn;
     if (els.customUrl && savedBc.customUrl) els.customUrl.value = savedBc.customUrl;
     if (els.igKey && savedBc.igKey) els.igKey.value = savedBc.igKey;
+    if (els.mdUrl && savedBc.mdUrl) els.mdUrl.value = savedBc.mdUrl;
     if (savedBc.mode) scene.mode = savedBc.mode;
   } catch (e) { /* fine */ }
 
@@ -180,6 +186,7 @@
         customOn: els.customOn ? els.customOn.checked : false,
         customUrl: els.customUrl ? els.customUrl.value : "",
         igKey: els.igKey ? els.igKey.value : "",
+        mdUrl: els.mdUrl ? els.mdUrl.value : "",
         mode: scene.mode,
       }));
       localStorage.setItem(ovStoreKey, JSON.stringify({
@@ -191,7 +198,7 @@
     } catch (e) { /* fine */ }
   }
 
-  ["ytOn", "ytKey", "yt2On", "yt2Key", "fbOn", "fbKey", "customOn", "customUrl", "igKey", "l3Name", "l3Role", "ppList"]
+  ["ytOn", "ytKey", "yt2On", "yt2Key", "fbOn", "fbKey", "customOn", "customUrl", "igKey", "mdUrl", "l3Name", "l3Role", "ppList"]
     .forEach(function (k) {
       if (els[k]) els[k].addEventListener("change", persistState);
     });
@@ -334,9 +341,28 @@
       .on("nonfatal-error", function (ev) {
         // Surface warnings Daily raises without killing the call (e.g. a
         // rejected layout) — these were previously invisible.
-        if (ev && ev.type && /stream|layout|composition/i.test(ev.type + " " + (ev.errorMsg || ""))) {
-          panelError("Daily warning: " + (ev.errorMsg || ev.type));
+        var text = (ev && (ev.type + " " + (ev.errorMsg || ""))) || "";
+        if (/media-player/i.test(text)) {
+          mdNote("Media error: " + ((ev && ev.errorMsg) || ev.type));
+        } else if (/stream|layout|composition/i.test(text)) {
+          panelError("Daily warning: " + ((ev && ev.errorMsg) || ev.type));
         }
+      })
+      .on("remote-media-player-started", function (ev) {
+        md.sessionId = ev && ev.session_id;
+        mdNote("Playing — visible to the room and the stream.");
+        mdButtons("playing");
+      })
+      .on("remote-media-player-updated", function (ev) {
+        var st = ev && ev.remoteMediaPlayerState && ev.remoteMediaPlayerState.state;
+        if (st === "paused") { mdNote("Paused."); mdButtons("paused"); }
+        else if (st === "playing") { mdNote("Playing."); mdButtons("playing"); }
+      })
+      .on("remote-media-player-stopped", function (ev) {
+        md.sessionId = null;
+        var why = ev && ev.reason ? " (" + ev.reason + ")" : "";
+        mdNote("Stopped" + why + ".");
+        mdButtons("idle");
       })
       .on("left-meeting", endCall)
       .on("error", function (ev) {
@@ -988,6 +1014,75 @@
 
   if (els.ppHide) {
     els.ppHide.addEventListener("click", function () { hideKind("prayer"); });
+  }
+
+  /* ---------- Media: play an external video into the room ---------- */
+  var md = { sessionId: null };
+
+  function mdNote(msg) {
+    if (els.mdStatus) els.mdStatus.textContent = msg;
+  }
+
+  function mdButtons(state) {
+    if (els.mdPlay) els.mdPlay.textContent = state === "paused" ? "Resume" : "Play";
+    if (els.mdPause) els.mdPause.disabled = state !== "playing";
+    if (els.mdStop) els.mdStop.disabled = state === "idle";
+  }
+  mdButtons("idle");
+
+  if (els.mdPlay) {
+    els.mdPlay.addEventListener("click", function () {
+      if (!callFrame) return;
+
+      // Resume if paused
+      if (md.sessionId) {
+        try {
+          callFrame.updateRemoteMediaPlayer({ session_id: md.sessionId, settings: { state: "play" } });
+        } catch (e) { mdNote("Could not resume: " + (e.message || e)); }
+        return;
+      }
+
+      var url = els.mdUrl ? els.mdUrl.value.trim() : "";
+      if (!url || !/^https?:\/\//i.test(url)) {
+        mdNote("Paste a direct video link first (must start with https:// and point at an .mp4 or .m3u8 file).");
+        els.mdUrl && els.mdUrl.focus();
+        return;
+      }
+
+      mdNote("Loading video…");
+      persistState();
+      try {
+        callFrame.startRemoteMediaPlayer({ url: url, settings: { state: "play" } })
+          .then(function (res) {
+            if (res && res.session_id) md.sessionId = res.session_id;
+          })
+          .catch(function (err) {
+            mdNote("Could not play: " + ((err && err.errorMsg) || (err && err.message) || err) +
+              " — the link must be a direct, publicly reachable video file.");
+            mdButtons("idle");
+          });
+      } catch (e) {
+        mdNote("Could not play: " + (e.message || e));
+      }
+    });
+  }
+
+  if (els.mdPause) {
+    els.mdPause.addEventListener("click", function () {
+      if (!callFrame || !md.sessionId) return;
+      try {
+        callFrame.updateRemoteMediaPlayer({ session_id: md.sessionId, settings: { state: "pause" } });
+      } catch (e) { mdNote("Could not pause: " + (e.message || e)); }
+    });
+  }
+
+  if (els.mdStop) {
+    els.mdStop.addEventListener("click", function () {
+      if (!callFrame || !md.sessionId) return;
+      try {
+        callFrame.stopRemoteMediaPlayer(md.sessionId);
+      } catch (e) { mdNote("Could not stop: " + (e.message || e)); }
+    });
   }
 
   /* ---------- Scripture (KJV via bible-api.com) ---------- */
