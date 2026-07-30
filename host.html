@@ -77,11 +77,14 @@
     <div class="console-body">
       <div class="console-main">
         <div class="stage" id="stage">
-          <!-- WYSIWYG: this card mirrors exactly what the broadcast shows, in place -->
-          <div class="live-card" id="live-card" hidden>
-            <span class="pv-tag" id="pv-tag">OFF AIR</span>
-            <p class="lc-title" id="lc-title"></p>
-            <p class="lc-sub" id="lc-sub"></p>
+          <!-- WYSIWYG: the dashed outline is the 16:9 stream frame; the card sits
+               inside it exactly where the broadcast shows it -->
+          <div class="frame-guide" id="frame-guide" hidden>
+            <div class="live-card" id="live-card">
+              <span class="pv-tag" id="pv-tag">ONLY YOU SEE THIS</span>
+              <p class="lc-title" id="lc-title"></p>
+              <p class="lc-sub" id="lc-sub"></p>
+            </div>
           </div>
         </div>
 
@@ -100,9 +103,12 @@
               <button type="button" class="p-btn mode-btn" data-mode="pip">PiP</button>
             </div>
             <p class="b-row-label">Destinations</p>
-            <label class="b-check"><input type="checkbox" id="yt-on" checked> YouTube</label>
+            <label class="b-check"><input type="checkbox" id="yt-on" checked> YouTube &mdash; channel 1</label>
             <input type="password" id="yt-key" class="b-input" autocomplete="off"
                    placeholder="Stream key &mdash; YouTube Studio &rarr; Go live">
+            <label class="b-check"><input type="checkbox" id="yt2-on"> YouTube &mdash; channel 2</label>
+            <input type="password" id="yt2-key" class="b-input" autocomplete="off"
+                   placeholder="Stream key &mdash; second channel">
             <label class="b-check"><input type="checkbox" id="fb-on"> Facebook</label>
             <input type="password" id="fb-key" class="b-input" autocomplete="off"
                    placeholder="Stream key &mdash; Live Producer">

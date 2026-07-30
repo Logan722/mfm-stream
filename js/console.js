@@ -42,6 +42,7 @@
     vertChip: document.getElementById("vert-chip"),
     vertTimer: document.getElementById("vert-timer"),
     // WYSIWYG card on video
+    frameGuide: document.getElementById("frame-guide"),
     liveCard: document.getElementById("live-card"),
     pvTag: document.getElementById("pv-tag"),
     lcTitle: document.getElementById("lc-title"),
@@ -52,6 +53,8 @@
     modes: document.getElementById("bc-modes"),
     ytOn: document.getElementById("yt-on"),
     ytKey: document.getElementById("yt-key"),
+    yt2On: document.getElementById("yt2-on"),
+    yt2Key: document.getElementById("yt2-key"),
     fbOn: document.getElementById("fb-on"),
     fbKey: document.getElementById("fb-key"),
     customOn: document.getElementById("custom-on"),
@@ -137,6 +140,8 @@
     var savedBc = JSON.parse(localStorage.getItem(bcStoreKey) || "{}");
     if (els.ytOn && "ytOn" in savedBc) els.ytOn.checked = !!savedBc.ytOn;
     if (els.ytKey && savedBc.ytKey) els.ytKey.value = savedBc.ytKey;
+    if (els.yt2On && "yt2On" in savedBc) els.yt2On.checked = !!savedBc.yt2On;
+    if (els.yt2Key && savedBc.yt2Key) els.yt2Key.value = savedBc.yt2Key;
     if (els.fbOn && "fbOn" in savedBc) els.fbOn.checked = !!savedBc.fbOn;
     if (els.fbKey && savedBc.fbKey) els.fbKey.value = savedBc.fbKey;
     if (els.customOn && "customOn" in savedBc) els.customOn.checked = !!savedBc.customOn;
@@ -167,6 +172,8 @@
       localStorage.setItem(bcStoreKey, JSON.stringify({
         ytOn: els.ytOn ? els.ytOn.checked : true,
         ytKey: els.ytKey ? els.ytKey.value : "",
+        yt2On: els.yt2On ? els.yt2On.checked : false,
+        yt2Key: els.yt2Key ? els.yt2Key.value : "",
         fbOn: els.fbOn ? els.fbOn.checked : false,
         fbKey: els.fbKey ? els.fbKey.value : "",
         customOn: els.customOn ? els.customOn.checked : false,
@@ -183,7 +190,7 @@
     } catch (e) { /* fine */ }
   }
 
-  ["ytOn", "ytKey", "fbOn", "fbKey", "customOn", "customUrl", "igKey", "l3Name", "l3Role", "ppList"]
+  ["ytOn", "ytKey", "yt2On", "yt2Key", "fbOn", "fbKey", "customOn", "customUrl", "igKey", "l3Name", "l3Role", "ppList"]
     .forEach(function (k) {
       if (els[k]) els[k].addEventListener("change", persistState);
     });
@@ -624,6 +631,9 @@
     if (els.ytOn && els.ytOn.checked && els.ytKey && els.ytKey.value.trim()) {
       eps.push(YT_TEMPLATE + els.ytKey.value.trim());
     }
+    if (els.yt2On && els.yt2On.checked && els.yt2Key && els.yt2Key.value.trim()) {
+      eps.push(YT_TEMPLATE + els.yt2Key.value.trim());
+    }
     if (els.fbOn && els.fbOn.checked && els.fbKey && els.fbKey.value.trim()) {
       eps.push(FB_TEMPLATE + els.fbKey.value.trim());
     }
@@ -872,17 +882,17 @@
      ============================================================ */
 
   function renderScene() {
-    if (els.liveCard) {
+    if (els.frameGuide) {
       if (scene.card) {
-        els.liveCard.hidden = false;
+        els.frameGuide.hidden = false;
         els.lcTitle.textContent = scene.card.title;
         els.lcSub.textContent = scene.card.subtitle || "";
         els.lcSub.hidden = !scene.card.subtitle;
       } else {
-        els.liveCard.hidden = true;
+        els.frameGuide.hidden = true;
       }
       if (els.pvTag) {
-        els.pvTag.textContent = bc.live ? "LIVE" : "OFF AIR";
+        els.pvTag.textContent = bc.live ? "LIVE" : "ONLY YOU SEE THIS";
         els.pvTag.className = "pv-tag" + (bc.live ? " is-live" : "");
       }
     }

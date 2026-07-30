@@ -135,6 +135,14 @@ browser (laptop or phone). Two views of the same app:
   Each instance bills its own streaming minutes.
 - Endpoint templates: YouTube `rtmp://a.rtmp.youtube.com/live2/<key>`,
   Facebook `rtmps://live-api-s.facebook.com:443/rtmp/<key>` (FB requires RTMPS).
+- **Destinations vs instances (important):** ONE 16:9 instance feeds MANY platforms at
+  once — the console has slots for **YouTube ch.1 + YouTube ch.2 + Facebook + custom
+  RTMP**, all simultaneous, no Daily enablement needed. The instance limit only affects
+  the SECOND composition (9:16 Instagram) — like OBS needing Aitum for a vertical output.
+- **WYSIWYG frame guide:** while a card is showing, a dashed 16:9 outline marks the
+  broadcast frame over the video area and the card pins to its bottom-left — the same
+  corner viewers see (the room view around it may letterbox; the outline is truth).
+  Tag reads **ONLY YOU SEE THIS** off air, **LIVE** while broadcasting.
 
 ### Overlays (Phase 4 ✅ — lower thirds & prayer points)
 - **One card slot** on the stream (VCS banner overlay, bottom-left, fade transition);
