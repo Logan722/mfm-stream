@@ -153,8 +153,12 @@ browser (laptop or phone). Two views of the same app:
   Tag reads **ONLY YOU SEE THIS** off air, **LIVE** while broadcasting.
 
 ### Overlays (Phase 4 ✅ — lower thirds & prayer points)
-- **One card slot** on the stream (VCS banner overlay, bottom-left, fade transition);
+- **One card slot** on the stream (bottom-left by default, fade transition);
   three producers replace each other in it: lower third, prayer point, scripture (Phase 5).
+- **Card position picker (July 30, 2026, Dawn's request):** 6 positions — top/bottom ×
+  left/center/right — one control in the Lower third panel, applies to every card kind,
+  moves live. Engine draws at the chosen corner (labels step aside); WYSIWYG preview
+  mirrors it; the legacy VCS fallback maps it to text-overlay alignment.
 - **Lower third:** name + line-2 inputs on the board → `banner.title` / `banner.subtitle`.
 - **Prayer points:** textarea (one point per line, saved on the host's device),
   **Prev / Push / Next / Hide** — card shows "Prayer Point n of m" + the point text.

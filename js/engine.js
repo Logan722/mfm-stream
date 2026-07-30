@@ -77,7 +77,7 @@
   var ctx = canvas.getContext("2d", { alpha: false });
 
   /* ---------- State ---------- */
-  var scene = { mode: "grid", spot: null, card: null };
+  var scene = { mode: "grid", spot: null, card: null, cardPos: "bl" };
   var cardDraw = { card: null, alpha: 0 };
   var call = null;
   var joined = false;
@@ -505,6 +505,7 @@
       if (MODES[d.scene.mode]) scene.mode = d.scene.mode;
       scene.spot = d.scene.spot && people[d.scene.spot] ? d.scene.spot : null;
       scene.card = normalizeCard(d.scene.card);
+      if (/^[tb][lcr]$/.test(d.scene.cardPos || "")) scene.cardPos = d.scene.cardPos;
     } else if (d.cmd === "gain") {
       setGain(d.source, d.value);
     } else if (d.cmd === "ping") {
@@ -902,7 +903,13 @@
     var h = CARD.padY * 2 + kickH + 48 +
       (lines.length ? CARD.gap + lines.length * CARD.subLH - (CARD.subLH - 30) : 0);
 
-    return { x: 64, y: H - 64 - h, w: w, h: h, kicker: kicker, kickH: kickH, lines: lines };
+    // Position: tl/tc/tr/bl/bc/br — the console moves the card live.
+    var pos = /^[tb][lcr]$/.test(scene.cardPos) ? scene.cardPos : "bl";
+    var ph = pos.charAt(1);
+    var x = ph === "l" ? 64 : ph === "r" ? W - 64 - w : (W - w) / 2;
+    var y = pos.charAt(0) === "t" ? 64 : H - 64 - h;
+
+    return { x: x, y: y, w: w, h: h, kicker: kicker, kickH: kickH, lines: lines };
   }
 
   function drawCard(box) {
@@ -1146,6 +1153,7 @@
     }
     var mode = qs.get("mode");
     if (MODES[mode]) scene.mode = mode;
+    if (/^[tb][lcr]$/.test(qs.get("pos") || "")) scene.cardPos = qs.get("pos");
     if (qs.get("spot") === "1") scene.spot = "demo-0";
     var cardArg = qs.get("card");
     if (cardArg === "l3") {

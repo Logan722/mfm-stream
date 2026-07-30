@@ -85,6 +85,7 @@
     mdPause: document.getElementById("md-pause"),
     mdStop: document.getElementById("md-stop"),
     mdStatus: document.getElementById("md-status"),
+    cardPosRow: document.getElementById("card-pos"),
     scBrand: document.getElementById("sc-brand"),
     scInput: document.getElementById("sc-input"),
     scGo: document.getElementById("sc-go"),
@@ -117,6 +118,7 @@
   /* ---------- Scene: what the 16:9 broadcast shows ---------- */
   var scene = {
     card: null,       // null | { kind, title, subtitle }
+    cardPos: "bl",    // tl | tc | tr | bl | bc | br — applies to every card
     mode: "grid",     // grid | dominant | split | pip
     spot: null,       // null | session_id featured full-screen
   };
@@ -190,6 +192,7 @@
     if (els.l3Role && savedOv.l3role) els.l3Role.value = savedOv.l3role;
     if (els.ppList && savedOv.points) els.ppList.value = savedOv.points;
     if (typeof savedOv.ppIdx === "number") ppIdx = savedOv.ppIdx;
+    if (/^[tb][lcr]$/.test(savedOv.cardPos || "")) scene.cardPos = savedOv.cardPos;
   } catch (e) { /* fine */ }
 
   function rememberIdentity() {
@@ -221,6 +224,7 @@
         l3role: els.l3Role ? els.l3Role.value : "",
         points: els.ppList ? els.ppList.value : "",
         ppIdx: ppIdx,
+        cardPos: scene.cardPos,
       }));
     } catch (e) { /* fine */ }
   }
@@ -524,7 +528,7 @@
       callFrame.sendAppMessage({
         t: "mfm-cmd",
         cmd: "scene",
-        scene: { mode: scene.mode, spot: scene.spot, card: scene.card },
+        scene: { mode: scene.mode, spot: scene.spot, card: scene.card, cardPos: scene.cardPos },
       }, p.session_id);
     } catch (e) { /* heartbeat mismatch will show in the panel */ }
   }
@@ -868,11 +872,13 @@
     if (scene.card) {
       var lines = [scene.card.title];
       if (scene.card.subtitle) lines = lines.concat(wrapText(scene.card.subtitle, 58, 4));
+      var pv = (scene.cardPos || "bl").charAt(0);
+      var ph = (scene.cardPos || "bl").charAt(1);
       params["text.content"] = lines.join("\n");
-      params["text.align_horizontal"] = "left";
-      params["text.align_vertical"] = "bottom";
-      params["text.offset_x"] = 40;
-      params["text.offset_y"] = -40;
+      params["text.align_horizontal"] = ph === "l" ? "left" : ph === "r" ? "right" : "center";
+      params["text.align_vertical"] = pv === "t" ? "top" : "bottom";
+      params["text.offset_x"] = ph === "l" ? 40 : ph === "r" ? -40 : 0;
+      params["text.offset_y"] = pv === "t" ? 40 : -40;
       params["text.color"] = "rgba(255, 252, 245, 0.98)";
       params["text.strokeColor"] = "rgba(10, 16, 28, 0.9)";
       params["text.fontFamily"] = "Bitter";
@@ -917,6 +923,18 @@
       var btn = e.target.closest ? e.target.closest(".mode-btn") : null;
       if (!btn) return;
       scene.mode = btn.getAttribute("data-mode") || "grid";
+      applyScene();
+    });
+  }
+
+  /* ---------- Card position (applies to every card kind) ---------- */
+  if (els.cardPosRow) {
+    els.cardPosRow.addEventListener("click", function (e) {
+      var btn = e.target.closest ? e.target.closest(".pos-btn") : null;
+      if (!btn) return;
+      var pos = btn.getAttribute("data-pos");
+      if (!/^[tb][lcr]$/.test(pos)) return;
+      scene.cardPos = pos;
       applyScene();
     });
   }
@@ -1164,6 +1182,7 @@
         els.lcTitle.textContent = scene.card.title;
         els.lcSub.textContent = scene.card.subtitle || "";
         els.lcSub.hidden = !scene.card.subtitle;
+        positionPreviewCard();
       } else {
         els.frameGuide.hidden = true;
       }
@@ -1173,6 +1192,26 @@
       }
     }
     setActiveModeButton(scene.mode);
+    if (els.cardPosRow) {
+      Array.prototype.forEach.call(els.cardPosRow.querySelectorAll(".pos-btn"), function (b) {
+        b.classList.toggle("active", b.getAttribute("data-pos") === scene.cardPos);
+      });
+    }
+  }
+
+  /* The WYSIWYG card mirrors the broadcast corner exactly. */
+  function positionPreviewCard() {
+    if (!els.liveCard) return;
+    var pos = /^[tb][lcr]$/.test(scene.cardPos) ? scene.cardPos : "bl";
+    var s = els.liveCard.style;
+    s.left = "auto"; s.right = "auto"; s.top = "auto"; s.bottom = "auto";
+    s.transform = "none";
+    var v = pos.charAt(0), h = pos.charAt(1);
+    if (h === "l") s.left = "16px";
+    else if (h === "r") s.right = "16px";
+    else { s.left = "50%"; s.transform = "translateX(-50%)"; }
+    if (v === "t") s.top = "16px";
+    else s.bottom = "68px";
   }
 
   /* ============================================================
