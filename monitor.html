@@ -65,6 +65,14 @@
     return !!p && !p.local && (p.user_id === ENGINE_UID || p.user_name === "PROGRAM");
   }
 
+  var vtLog = [];
+  function vtSay(msg) {
+    var ve = document.getElementById("vt-empty");
+    vtLog.push(msg);
+    if (vtLog.length > 4) vtLog.shift();
+    if (ve) ve.textContent = vtLog.join(" · ");
+  }
+
   function sync(e) {
     var p = e.participant;
     if (!isEngine(p) || !call) return;
@@ -72,10 +80,17 @@
       call.updateParticipant(p.session_id, {
         setSubscribedTracks: { video: true, screenVideo: true, custom: true, audio: false },
       });
+      vtSay("subscribed");
     } catch (err) {
-      var ve = document.getElementById("vt-empty");
-      if (ve) ve.textContent = "9:16 subscribe error: " + ((err && err.message) || err);
+      vtSay("subscribe error: " + ((err && err.message) || err));
     }
+    // Also report which of the engine's tracks exist from our side
+    try {
+      var names = Object.keys(p.tracks || {}).filter(function (k) {
+        return p.tracks[k] && p.tracks[k].state && p.tracks[k].state !== "off";
+      });
+      vtSay("engine tracks: " + (names.join(",") || "none"));
+    } catch (e2) { /* fine */ }
   }
 
   function attach(e) {
@@ -94,6 +109,7 @@
     v.srcObject = new MediaStream([e.track]);
     v.play().catch(function () { /* muted autoplay is allowed */ });
     if (empty) empty.style.display = "none";
+    if (which !== "vt") vtSay("got " + which + " track");
   }
 })();
 </script>
