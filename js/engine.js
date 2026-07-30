@@ -47,7 +47,7 @@
 
   var W = 1920, H = 1080, FPS = 30;
   var FADE = 0.22; // card fade seconds
-  var BUILD = "jul30-n7"; // shown in the console Engine panel — stale-engine detector
+  var BUILD = "jul30-n8"; // shown in the console Engine panel — stale-engine detector
 
   /* ---------- Royal Flame tokens ---------- */
   var C = {
@@ -108,7 +108,8 @@
   }
 
   /* ---------- State ---------- */
-  var scene = { mode: "grid", spot: null, card: null, cardPos: "bl", slate: null, labels: false };
+  var scene = { mode: "grid", spot: null, card: null, cardPos: "bl", slate: null, labels: false,
+                cardStyle: { align: "left", size: "m", titleColor: "#F2F2F2", subColor: "#A8A8A8" } };
   var cardDraw = { card: null, alpha: 0 };
 
   /* Studio mode (E3): a second, STAGED scene the console edits without
@@ -636,6 +637,13 @@
   function normalizeScene(sc, base) {
     var out = base ? copyScene(base) : { mode: "grid", spot: null, card: null, cardPos: "bl", slate: null, labels: false };
     out.labels = !!sc.labels; // Dawn (July 30): names OFF the broadcast by default
+    var cs2 = sc.cardStyle || {};
+    out.cardStyle = {
+      align: { left: 1, center: 1, right: 1 }[cs2.align] ? cs2.align : "left",
+      size: { s: 1, m: 1, l: 1 }[cs2.size] ? cs2.size : "m",
+      titleColor: /^#[0-9a-fA-F]{6}$/.test(cs2.titleColor || "") ? cs2.titleColor : "#F2F2F2",
+      subColor: /^#[0-9a-fA-F]{6}$/.test(cs2.subColor || "") ? cs2.subColor : "#A8A8A8",
+    };
     if (MODES[sc.mode]) out.mode = sc.mode;
     out.spot = sc.spot && people[sc.spot] ? sc.spot : null;
     out.card = normalizeCard(sc.card);
@@ -1227,21 +1235,39 @@
   };
 
   /* Measure the card without drawing — labels use the rect to step aside. */
+  var CARD_SIZES = {
+    s: { t: 36, sub: 26, lh: 34, th: 44 },
+    m: { t: 44, sub: 30, lh: 40, th: 52 },
+    l: { t: 56, sub: 36, lh: 48, th: 66 },
+  };
+
+  function cardFonts() {
+    var st = (scene.cardStyle && CARD_SIZES[scene.cardStyle.size]) ? scene.cardStyle : { size: "m" };
+    var z = CARD_SIZES[st.size] || CARD_SIZES.m;
+    return {
+      title: "800 " + z.t + "px " + SANS,
+      sub: "500 " + z.sub + "px " + SANS,
+      lh: z.lh,
+      th: z.th,
+    };
+  }
+
   function layoutCard(card) {
     var kicker = "";
     // Prayer titles ("Prayer Point 3 of 12") act as their own kicker.
 
-    ctx.font = CARD.titleFont;
+    var F = cardFonts();
+    ctx.font = F.title;
     var titleW = Math.min(ctx.measureText(card.title).width, CARD.maxTextW);
-    ctx.font = CARD.subFont;
+    ctx.font = F.sub;
     var lines = card.subtitle ? wrapCanvasText(card.subtitle, CARD.maxTextW, 5) : [];
     var linesW = 0;
     lines.forEach(function (l) { linesW = Math.max(linesW, ctx.measureText(l).width); });
 
     var kickH = kicker ? 30 : 0;
     var w = CARD.barW + CARD.padX * 2 + Math.max(titleW, linesW);
-    var h = CARD.padY * 2 + kickH + 48 +
-      (lines.length ? CARD.gap + lines.length * CARD.subLH - (CARD.subLH - 30) : 0);
+    var h = CARD.padY * 2 + kickH + F.th +
+      (lines.length ? CARD.gap + lines.length * F.lh - (F.lh - 30) : 0);
 
     // Position: tl/tc/tr/bl/bc/br — the console moves the card live.
     var pos = /^[tb][lcr]$/.test(scene.cardPos) ? scene.cardPos : "bl";
@@ -1278,21 +1304,27 @@
       ty += box.kickH;
     }
 
-    ctx.font = CARD.titleFont;
-    ctx.fillStyle = card.kind === "prayer" ? "#D54141" : "#F2F2F2";
+    var F2 = cardFonts();
+    var st2 = scene.cardStyle || {};
+    var align = st2.align || "left";
+    if (align === "center") { ctx.textAlign = "center"; tx = box.x + box.w / 2; }
+    else if (align === "right") { ctx.textAlign = "right"; tx = box.x + box.w - CARD.padX; }
+    ctx.font = F2.title;
+    ctx.fillStyle = card.kind === "prayer" ? "#D54141" : (st2.titleColor || "#F2F2F2");
     ctx.textBaseline = "top";
     ctx.fillText(card.title, tx, ty, CARD.maxTextW);
-    ty += 52;
+    ty += F2.th;
 
     if (box.lines.length) {
       ty += CARD.gap;
-      ctx.font = CARD.subFont;
-      ctx.fillStyle = card.kind === "prayer" ? "#F2F2F2" : "#A8A8A8";
+      ctx.font = F2.sub;
+      ctx.fillStyle = card.kind === "prayer" ? (st2.titleColor || "#F2F2F2") : (st2.subColor || "#A8A8A8");
       box.lines.forEach(function (l) {
         ctx.fillText(l, tx, ty);
-        ty += CARD.subLH;
+        ty += F2.lh;
       });
     }
+    ctx.textAlign = "left";
 
     ctx.restore();
   }
@@ -1359,7 +1391,7 @@
   var frames = 0;
   var fpsWindow = 0;
   var speakerTick = 0;
-  var frameFlip = false; // preview & portrait render at half rate, alternating
+  var frameN = 0; // preview & portrait each render at 1/3 rate — program gets the headroom
 
   function startLoop() {
     stopLoop();
@@ -1401,9 +1433,9 @@
       takeFx.t -= dt;
     }
 
-    frameFlip = !frameFlip;
-    if (frameFlip) renderPreview(dt * 2);
-    else if (VERTICAL) drawPortrait();
+    frameN = (frameN + 1) % 3;
+    if (frameN === 1) renderPreview(dt * 3);
+    else if (frameN === 2 && VERTICAL) drawPortrait();
 
     frames++;
     fpsWindow += dt;

@@ -139,6 +139,7 @@
     spot: null,       // null | session_id featured full-screen
     slate: null,      // null | { kind: soon|brb|end, line }
     labels: false,    // names on the STREAM (room always shows them)
+    cardStyle: { align: "left", size: "m", titleColor: "#F2F2F2", subColor: "#A8A8A8" },
   };
   var ppIdx = 0;
 
@@ -232,6 +233,7 @@
     if (typeof savedOv.ppIdx === "number") ppIdx = savedOv.ppIdx;
     if (/^[tb][lcr]$/.test(savedOv.cardPos || "")) scene.cardPos = savedOv.cardPos;
     scene.labels = !!savedOv.labels;
+    if (savedOv.cardStyle) scene.cardStyle = savedOv.cardStyle;
     if (els.labelsOn) els.labelsOn.checked = scene.labels;
   } catch (e) { /* fine */ }
 
@@ -266,6 +268,7 @@
         ppIdx: ppIdx,
         cardPos: scene.cardPos,
         labels: scene.labels,
+        cardStyle: scene.cardStyle,
       }));
     } catch (e) { /* fine */ }
   }
@@ -615,7 +618,7 @@
     if (!scn) return;
     sendCmd({
       cmd: cmd,
-      scene: { mode: scn.mode, spot: scn.spot, card: scn.card, cardPos: scn.cardPos, slate: scn.slate, labels: scn.labels },
+      scene: { mode: scn.mode, spot: scn.spot, card: scn.card, cardPos: scn.cardPos, slate: scn.slate, labels: scn.labels, cardStyle: scn.cardStyle },
     });
   }
 
@@ -1391,6 +1394,50 @@
       sendGain("media", Number(els.mdStreamVol.value) / 100);
     });
   }
+
+  /* ---------- Card style (applies to every card kind) ---------- */
+  function cardStyleOf(s2) {
+    if (!s2.cardStyle) s2.cardStyle = { align: "left", size: "m", titleColor: "#F2F2F2", subColor: "#A8A8A8" };
+    return s2.cardStyle;
+  }
+
+  var csAlign = document.getElementById("cs-align");
+  var csSize = document.getElementById("cs-size");
+  var csTitle = document.getElementById("cs-title");
+  var csSub = document.getElementById("cs-sub");
+
+  if (csAlign) {
+    csAlign.addEventListener("click", function (e) {
+      var b = e.target.closest ? e.target.closest("[data-al]") : null;
+      if (!b) return;
+      cardStyleOf(activeScene()).align = b.getAttribute("data-al");
+      Array.prototype.forEach.call(csAlign.querySelectorAll(".al-btn"), function (x) {
+        x.classList.toggle("active", x === b);
+      });
+      applyScene();
+    });
+  }
+
+  if (csSize) {
+    csSize.addEventListener("click", function (e) {
+      var b = e.target.closest ? e.target.closest("[data-sz]") : null;
+      if (!b) return;
+      cardStyleOf(activeScene()).size = b.getAttribute("data-sz");
+      Array.prototype.forEach.call(csSize.querySelectorAll(".sz-btn"), function (x) {
+        x.classList.toggle("active", x === b);
+      });
+      applyScene();
+    });
+  }
+
+  if (csTitle) csTitle.addEventListener("input", function () {
+    cardStyleOf(activeScene()).titleColor = csTitle.value;
+    applyScene();
+  });
+  if (csSub) csSub.addEventListener("input", function () {
+    cardStyleOf(activeScene()).subColor = csSub.value;
+    applyScene();
+  });
 
   /* ---------- Card position (applies to every card kind) ---------- */
   if (els.cardPosRow) {
