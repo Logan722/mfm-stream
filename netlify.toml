@@ -1,0 +1,12 @@
+# MFM Mega Region 2 USA — Live Platform
+# Static site + serverless functions. No build step.
+
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+# Friendly API path: the frontend calls /api/token
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200

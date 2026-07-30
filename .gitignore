@@ -1,0 +1,8 @@
+# Secrets — never commit keys. DAILY_API_KEY and HOST_KEY live in Netlify env vars.
+.env
+.env.*
+
+# Tooling
+node_modules/
+.netlify/
+.DS_Store

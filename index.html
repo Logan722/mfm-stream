@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Join the Room — MFM Mega Region 2 USA Live</title>
+  <meta name="description" content="Join the MFM Mega Region 2 USA interactive ministry room.">
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Cpath%20d='M16%202c3%206-4%208-2%2013%201-2%203-3%204-2%202%203-1%205-1%208%205-1%209-5%209-10C26%204%2018%206%2016%202zM10%2014c-2%203-4%205-4%209%200%204%203%207%207%208-2-3-3-5-2-8-2-2-2-6-1-9z'%20fill='%23c9952c'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..900&family=Inter+Tight:wght@300..700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/stream.css">
+</head>
+<body>
+
+  <header class="site-head">
+    <div class="brand">
+      <span class="brand-mark">MFM</span>
+      <span class="brand-text">Mega Region 2 <em>· USA</em></span>
+    </div>
+    <span class="role-chip">Live Platform</span>
+  </header>
+
+  <main class="join-shell">
+    <section class="join-card">
+      <p class="eyebrow">Mountain of Fire &amp; Miracles Ministries</p>
+      <h1>Enter the <span class="gold">Sanctuary</span></h1>
+      <p class="scripture">&ldquo;Is not my word like as a fire? saith the L<small>ORD</small>&hellip;&rdquo; &mdash; Jeremiah 23:29</p>
+
+      <form id="join-form" autocomplete="on">
+        <label for="name">Your name</label>
+        <input id="name" name="name" type="text" maxlength="40" autocomplete="name"
+               placeholder="How you'll appear in the room" required>
+
+        <button type="submit" id="join-btn" class="primary">Join the Room</button>
+        <p class="hint">You&rsquo;ll preview your camera and microphone before you enter. You can turn them on or off at any time.</p>
+        <p class="error" id="error" role="alert" hidden></p>
+      </form>
+
+      <p class="room-line">Room: <strong id="room-label">sanctuary</strong></p>
+    </section>
+  </main>
+
+  <footer class="site-foot">
+    &ldquo;But upon mount Zion shall be deliverance, and there shall be holiness&hellip;&rdquo; &mdash; Obadiah 1:17
+  </footer>
+
+  <!-- In-call stage -->
+  <div class="stage-wrap" id="stage-wrap" hidden>
+    <div class="stage-bar">
+      <div class="brand">
+        <span class="brand-mark">MFM</span>
+        <span class="brand-text">Mega Region 2 <em>· Live</em></span>
+      </div>
+      <div class="bar-right">
+        <span class="me-label" id="me-label"></span>
+        <input type="text" class="name-edit" id="name-edit" maxlength="40" aria-label="Change your display name">
+        <button type="button" class="bar-btn" id="edit-name">Change name</button>
+      </div>
+    </div>
+    <div class="stage" id="stage"></div>
+  </div>
+
+  <script crossorigin src="https://unpkg.com/@daily-co/daily-js"></script>
+  <script>window.MFM_STREAM_CONFIG = { role: "participant" };</script>
+  <script src="/js/join.js"></script>
+</body>
+</html>
