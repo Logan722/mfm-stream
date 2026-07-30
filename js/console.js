@@ -696,17 +696,48 @@
       params["videoSettings.preferredParticipantIds"] = scene.spot;
     }
 
-    params.showBannerOverlay = !!scene.card;
+    // Cards render via the TEXT overlay — the banner overlay of the legacy
+    // compositor is not supported on Daily's new pipeline (field-verified:
+    // labels rendered, banner never did). Text overlay is in current docs.
+    params.showTextOverlay = !!scene.card;
     if (scene.card) {
-      params["banner.title"] = scene.card.title;
-      params["banner.subtitle"] = scene.card.subtitle || "";
-      params["banner.position"] = "bottom-left";
-      params["banner.enableTransition"] = true;
-      params["banner.maxW_pct_default"] = 0.65;
-      params["banner.showIcon"] = false;
+      var lines = [scene.card.title];
+      if (scene.card.subtitle) lines = lines.concat(wrapText(scene.card.subtitle, 58, 4));
+      params["text.content"] = lines.join("\n");
+      params["text.align_horizontal"] = "left";
+      params["text.align_vertical"] = "bottom";
+      params["text.offset_x"] = 40;
+      params["text.offset_y"] = -40;
+      params["text.color"] = "rgba(255, 252, 245, 0.98)";
+      params["text.strokeColor"] = "rgba(10, 16, 28, 0.9)";
+      params["text.fontFamily"] = "Bitter";
+      params["text.fontSize_gu"] = 2.0;
     }
 
     return params;
+  }
+
+  /* Wrap a long line into at most maxLines lines of ~width chars, breaking
+     on spaces, so verses stay readable on the stream. */
+  function wrapText(str, width, maxLines) {
+    var words = String(str).split(/\s+/);
+    var lines = [];
+    var cur = "";
+    for (var i = 0; i < words.length; i++) {
+      if ((cur + " " + words[i]).trim().length > width && cur) {
+        lines.push(cur);
+        cur = words[i];
+        if (lines.length === maxLines - 1) {
+          var rest = words.slice(i + 1).join(" ");
+          if (rest) cur = cur + " " + rest;
+          break;
+        }
+      } else {
+        cur = (cur + " " + words[i]).trim();
+      }
+    }
+    if (cur) lines.push(cur.length > width + 12 ? cur.slice(0, width + 9) + "…" : cur);
+    return lines;
   }
 
   function setActiveModeButton(mode) {

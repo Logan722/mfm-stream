@@ -178,14 +178,22 @@ browser (laptop or phone). Two views of the same app:
 - Per-participant volume rebalancing on the stream mix isn't a thing anywhere in the
   compositor: each person's level = their mic. Tools: mute, coaching, mic distance.
 
-### ⚠️ OPEN INVESTIGATION — overlays still not applying (as of July 30, 2026)
-- Even with `composition_id`, a field test showed NO card/labels on the YouTube output.
-- Likely cause: Daily's **new VCS pipeline** (default for new customers since March
-  2026; legacy EOL summer 2026; `enable_legacy_compositor` flag exists). The domain
-  (created June 2026) is on the new pipeline; param support may differ.
-- **Diagnostic endpoint shipped:** `GET /api/diag?k=<HOST_KEY>&room=sanctuary`
-  (run while in the room, NOT broadcasting) returns domain config + Daily's verbatim
-  response to our exact custom layout. Next session: read that JSON, then fix per facts.
+### Overlay investigation — RESOLVED for composition, one check open (July 30, 2026)
+- ✅ **The `composition_id: "daily:baseline"` fix works**: a 3-person field test showed
+  participant name labels rendering on the YouTube output — the custom composition is
+  applying. (Before the fix: bare default layout, no labels, no cards, ever.)
+- Diag also proved: `max_streaming_instances_per_room: 2` (9:16 vertical enabled NOW,
+  no support ticket), `max_rmp_sessions_per_room: 2` (Media panel supported),
+  new compositor active (`enable_legacy_compositor: false`).
+- ❌ **Banner overlay confirmed NOT supported on the new pipeline** (labels rendered,
+  cards never did, even after waiting out the delay). ✅ **Fix: cards now render via the
+  TEXT overlay** (`showTextOverlay` + `text.*` — in the new pipeline's current docs):
+  title line + subtitle wrapped ~58 chars/line (max 4 lines), bottom-left, warm white
+  with dark stroke, Bitter. No card box on stream — styled text instead; the boxed
+  Royal Flame card look returns with the self-composited overlay phase if wanted.
+- `/api/diag` still available (host key, or investigation key on `diag-*` rooms;
+  actions: config | layout-test | rec-start | rec-stop | rec-link). Remove when closed.
+- Nonfatal Daily warnings now surface with full type/msg/details in the Broadcast panel.
 
 ### Console layout (reworked July 2026 after field feedback)
 - **Production deck** along the bottom of the video: four side-by-side panels —
