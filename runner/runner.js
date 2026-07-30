@@ -34,6 +34,11 @@ const HEALTH_PORT = Number(process.env.HEALTH_PORT || 8080);
 const DISPLAY = process.env.DISPLAY || ":99";
 
 const W = 1920, H = 1080, FPS = 30;
+// VERTICAL=1: the display widens to 3000×1920 — program 16:9 at (0,0),
+// portrait 9:16 at x=1920 — and a second FFmpeg can push Instagram.
+const WIDE = process.env.VERTICAL === "1";
+const DISP_W = WIDE ? 3000 : W;
+const DISP_H = WIDE ? 1920 : H;
 const WATCH_EVERY_MS = 20000;
 const FFMPEG_RETRIES = 3;
 
@@ -41,6 +46,9 @@ let browser = null;
 let page = null;
 let ffmpeg = null;
 let ffmpegInfo = { running: false, startedAt: 0, detail: "" };
+let ffmpegVert = null;
+let ffmpegVertInfo = { running: false, startedAt: 0, detail: "" };
+let intentionalStopVert = false;
 let lastUrls = null;          // for auto-retry after an unexpected exit
 let ffmpegRetriesLeft = 0;
 let intentionalStop = false;
@@ -68,7 +76,8 @@ function engineUrl() {
     SITE.replace(/\/+$/, "") +
     "/program.html?room=" + encodeURIComponent(ROOM) +
     "&key=" + encodeURIComponent(KEY) +
-    "&autostart=1&capture=1&monitor=1&runner=cloud"
+    "&autostart=1&capture=1&monitor=1&runner=cloud" +
+    (WIDE ? "&vertical=1" : "")
   );
 }
 
@@ -82,7 +91,7 @@ async function launchBrowser() {
       "--no-sandbox",
       "--kiosk",
       "--window-position=0,0",
-      `--window-size=${W},${H}`,
+      `--window-size=${DISP_W},${DISP_H}`,
       "--autoplay-policy=no-user-gesture-required",
       "--disable-background-timer-throttling",
       "--disable-backgrounding-occluded-windows",
@@ -156,7 +165,67 @@ function handleCommand(cmd) {
   } else if (cmd.action === "stop") {
     intentionalStop = true;
     stopFfmpeg("stopped from the console");
+  } else if (cmd.action === "start-vert") {
+    const urls = (Array.isArray(cmd.urls) ? cmd.urls : [])
+      .map(String)
+      .filter((u) => /^rtmps?:\/\/\S+$/i.test(u));
+    if (!urls.length || !WIDE) {
+      log("start-vert refused", { urls: urls.length, WIDE });
+      ffmpegVertInfo.detail = WIDE ? "no valid RTMP url" : "runner not started with VERTICAL=1";
+      pushFfmpegState();
+      return;
+    }
+    intentionalStopVert = false;
+    startFfmpegVert(urls[0]);
+  } else if (cmd.action === "stop-vert") {
+    intentionalStopVert = true;
+    stopFfmpegVert("stopped from the console");
   }
+}
+
+function startFfmpegVert(url) {
+  if (ffmpegVert) stopFfmpegVert("replacing stream");
+  const args = [
+    "-hide_banner", "-loglevel", "warning",
+    "-f", "x11grab", "-draw_mouse", "0",
+    "-framerate", String(FPS), "-video_size", `${DISP_W}x${DISP_H}`, "-i", DISPLAY,
+    "-f", "pulse", "-i", "broadcast.monitor",
+    "-vf", "crop=1080:1920:1920:0",
+    "-c:v", "libx264", "-preset", "veryfast", "-tune", "zerolatency",
+    "-b:v", "3500k", "-maxrate", "3800k", "-bufsize", "7000k",
+    "-pix_fmt", "yuv420p", "-g", String(FPS * 2), "-keyint_min", String(FPS),
+    "-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-ac", "2",
+    "-map", "0:v", "-map", "1:a",
+    "-f", "flv", url,
+  ];
+  log("starting vertical FFmpeg (9:16)");
+  ffmpegVert = spawn("ffmpeg", args, { stdio: ["ignore", "pipe", "pipe"] });
+  ffmpegVertInfo = { running: true, startedAt: Date.now(), detail: "Instagram 9:16" };
+  pushFfmpegState();
+  ffmpegVert.stderr.on("data", (d) => {
+    const line = String(d).trim();
+    if (line) log("ffmpeg-vert:", line.slice(0, 300));
+  });
+  ffmpegVert.on("exit", (code, signal) => {
+    ffmpegVert = null;
+    ffmpegVertInfo = {
+      running: false,
+      startedAt: 0,
+      detail: intentionalStopVert || code === 0 || signal
+        ? ""
+        : "ffmpeg-vert exited with code " + code,
+    };
+    log("vertical FFmpeg exited", { code, signal, intentionalStopVert });
+    pushFfmpegState();
+  });
+}
+
+function stopFfmpegVert(reason) {
+  if (!ffmpegVert) return;
+  log("stopping vertical FFmpeg —", reason);
+  try { ffmpegVert.kill("SIGINT"); } catch (e) { /* fine */ }
+  const f = ffmpegVert;
+  setTimeout(() => { try { f && f.kill("SIGKILL"); } catch (e) { /* fine */ } }, 5000);
 }
 
 function startFfmpeg(urls) {
@@ -165,11 +234,12 @@ function startFfmpeg(urls) {
   const tee = urls.map((u) => `[f=flv:onfail=ignore]${u}`).join("|");
   const args = [
     "-hide_banner", "-loglevel", "warning",
-    // Video: grab the Xvfb display (the engine canvas fills it exactly)
+    // Video: grab the Xvfb display (the program canvas sits at 0,0)
     "-f", "x11grab", "-draw_mouse", "0",
-    "-framerate", String(FPS), "-video_size", `${W}x${H}`, "-i", DISPLAY,
+    "-framerate", String(FPS), "-video_size", `${DISP_W}x${DISP_H}`, "-i", DISPLAY,
     // Audio: the Pulse null sink the engine plays its mix into
     "-f", "pulse", "-i", "broadcast.monitor",
+    ...(WIDE ? ["-vf", "crop=1920:1080:0:0"] : []),
     // Encode once, push everywhere
     "-c:v", "libx264", "-preset", "veryfast", "-tune", "zerolatency",
     "-b:v", "5000k", "-maxrate", "5500k", "-bufsize", "10000k",
@@ -233,7 +303,7 @@ async function pushFfmpegState(extraDetail) {
   try {
     await page.evaluate((st) => {
       if (window.__mfmRunnerEvent) window.__mfmRunnerEvent(st);
-    }, { ffmpeg: ffmpegInfo });
+    }, { ffmpeg: ffmpegInfo, ffmpegVert: ffmpegVertInfo });
   } catch (e) {
     log("could not push state to page:", e.message);
   }
@@ -297,6 +367,8 @@ http.createServer((req, res) => {
       pageAliveCounter: lastAlive,
       browserRestarts: browserRestarts,
       ffmpeg: ffmpegInfo,
+      ffmpegVert: ffmpegVertInfo,
+      vertical: WIDE,
     }, null, 2));
   } else {
     res.writeHead(404);
@@ -312,7 +384,9 @@ async function shutdown(sig) {
   log("shutting down (" + sig + ")");
   shuttingDown = true;
   intentionalStop = true;
+  intentionalStopVert = true;
   stopFfmpeg("shutdown");
+  stopFfmpegVert("shutdown");
   try { if (browser) await browser.close(); } catch (e) { /* fine */ }
   process.exit(0);
 }

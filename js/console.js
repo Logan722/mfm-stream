@@ -96,6 +96,14 @@
     engStatus: document.getElementById("eng-status"),
     engOpen: document.getElementById("eng-open"),
     engAlert: document.getElementById("eng-alert"),
+    // Studio + slates + gains (E3)
+    studioToggle: document.getElementById("studio-toggle"),
+    takeBtn: document.getElementById("take-btn"),
+    cutBtn: document.getElementById("cut-btn"),
+    slateRow: document.getElementById("slate-row"),
+    slateLine: document.getElementById("slate-line"),
+    masterVol: document.getElementById("master-vol"),
+    mdStreamVol: document.getElementById("md-stream-vol"),
   };
 
   var callFrame = null;
@@ -123,8 +131,18 @@
     cardPos: "bl",    // tl | tc | tr | bl | bc | br — applies to every card
     mode: "grid",     // grid | dominant | split | pip
     spot: null,       // null | session_id featured full-screen
+    slate: null,      // null | { kind: soon|brb|end, line }
   };
   var ppIdx = 0;
+
+  /* Studio mode (E3): edits stage onto a PREVIEW scene; TAKE puts it on air. */
+  var studio = { on: false, preview: null };
+
+  function deepCopy(o) { return JSON.parse(JSON.stringify(o)); }
+
+  function activeScene() {
+    return studio.on && studio.preview ? studio.preview : scene;
+  }
 
   /* ---------- Stream instances ----------
      Main 16:9 = Daily's default instance (no explicit id).
@@ -138,13 +156,20 @@
   // streaming involved. Driven by engine heartbeats, controlled by app-message.
   var cs = { running: false, starting: false, startedAt: 0, timerId: null,
              confirmingEnd: null, startTimeout: null };
+  // Cloud 9:16 (E3): a second FFmpeg on the VPS crops the portrait canvas.
+  var cv = { running: false, starting: false, startedAt: 0, timerId: null,
+             confirmingEnd: null, startTimeout: null };
 
-  /* Every scene edit is instant: persist, hand it to the engine (or the
-     legacy stream if the engine is offline), mirror on the video. */
+  /* Studio OFF: every edit is instant (WYSIWYG). Studio ON: edits stage on
+     the preview; only TAKE touches the program. */
   function applyScene() {
     persistState();
-    if (engineOnline()) sendEngineScene(); // keep the canvas current (even warm, off-stream)
-    if (bc.live && !bc.engineLocked) pushLayout(); // fallback stream still gets pushes
+    if (studio.on) {
+      sendSceneCmd("scene-preview", studio.preview);
+    } else {
+      if (engineOnline()) sendEngineScene();
+      if (bc.live && !bc.engineLocked) pushLayout(); // legacy fallback stream
+    }
     renderScene();
   }
 
@@ -375,6 +400,9 @@
           scene.spot = null;
           applyScene();
         }
+        if (id && studio.preview && studio.preview.spot === id) {
+          studio.preview.spot = null;
+        }
         if (isEngine(ev && ev.participant)) {
           eng.lastState = null;
           if (id === eng.cloudSid) { eng.cloudSid = null; eng.cloudSeen = 0; }
@@ -493,6 +521,13 @@
     cs.starting = false;
     if (cs.timerId) { clearInterval(cs.timerId); cs.timerId = null; }
     if (cs.startTimeout) { clearTimeout(cs.startTimeout); cs.startTimeout = null; }
+    cv.running = false;
+    cv.starting = false;
+    if (cv.timerId) { clearInterval(cv.timerId); cv.timerId = null; }
+    if (cv.startTimeout) { clearTimeout(cv.startTimeout); cv.startTimeout = null; }
+    studio.on = false;
+    studio.preview = null;
+    updateStudioUI();
     eng.lastState = null;
     eng.alert = "";
     eng.cloudSid = null;
@@ -552,16 +587,29 @@
     return !!engineParticipant();
   }
 
-  function sendEngineScene() {
+  function sendCmd(obj) {
     var p = engineParticipant();
     if (!p || !callFrame) return;
+    obj.t = "mfm-cmd";
     try {
-      callFrame.sendAppMessage({
-        t: "mfm-cmd",
-        cmd: "scene",
-        scene: { mode: scene.mode, spot: scene.spot, card: scene.card, cardPos: scene.cardPos },
-      }, p.session_id);
+      callFrame.sendAppMessage(obj, p.session_id);
     } catch (e) { /* heartbeat mismatch will show in the panel */ }
+  }
+
+  function sendSceneCmd(cmd, scn) {
+    if (!scn) return;
+    sendCmd({
+      cmd: cmd,
+      scene: { mode: scn.mode, spot: scn.spot, card: scn.card, cardPos: scn.cardPos, slate: scn.slate },
+    });
+  }
+
+  function sendEngineScene() {
+    sendSceneCmd("scene", scene);
+    if (studio.on) {
+      sendCmd({ cmd: "studio", on: true });
+      sendSceneCmd("scene-preview", studio.preview);
+    }
   }
 
   function pingEngine() {
@@ -639,6 +687,66 @@
     if (running && !cs.running) cloudStarted(f);
     else if (!running && cs.running) cloudStopped(f);
     else if (running && f.startedAt) cs.startedAt = f.startedAt;
+
+    var fv = st && st.ffmpegVert;
+    var vRunning = !!(fv && fv.running);
+    if (vRunning && !cv.running) cvStarted(fv);
+    else if (!vRunning && cv.running) cvStopped(fv);
+    else if (vRunning && fv.startedAt) cv.startedAt = fv.startedAt;
+  }
+
+  function cvStarted(fv) {
+    cv.running = true;
+    cv.starting = false;
+    if (cv.startTimeout) { clearTimeout(cv.startTimeout); cv.startTimeout = null; }
+    cv.startedAt = (fv && fv.startedAt) || Date.now();
+    if (els.goVertBtn) {
+      els.goVertBtn.disabled = false;
+      els.goVertBtn.textContent = "End 9:16";
+      els.goVertBtn.classList.add("is-live-vert");
+    }
+    if (els.vertChip) els.vertChip.hidden = false;
+    if (cv.timerId) clearInterval(cv.timerId);
+    cv.timerId = setInterval(function () {
+      if (els.vertTimer && cv.startedAt) els.vertTimer.textContent = fmtClock(cv.startedAt);
+    }, 1000);
+    vertNote("9:16 vertical is live from the cloud runner (portrait canvas).");
+  }
+
+  function cvStopped(fv) {
+    var was = cv.running;
+    cv.running = false;
+    cv.starting = false;
+    if (cv.timerId) { clearInterval(cv.timerId); cv.timerId = null; }
+    if (cv.confirmingEnd) { clearTimeout(cv.confirmingEnd); cv.confirmingEnd = null; }
+    if (cv.startTimeout) { clearTimeout(cv.startTimeout); cv.startTimeout = null; }
+    if (!vt.live) {
+      if (els.vertChip) els.vertChip.hidden = true;
+      if (els.goVertBtn) {
+        els.goVertBtn.disabled = false;
+        els.goVertBtn.textContent = "Go Live 9:16";
+        els.goVertBtn.classList.remove("is-live-vert");
+      }
+    }
+    if (was && fv && fv.detail && /exited/i.test(fv.detail)) {
+      vertNote("9:16 ended unexpectedly: " + fv.detail + " — Instagram keys expire per session; get a fresh one and retry.");
+    }
+  }
+
+  function requestCvEnd() {
+    if (cv.confirmingEnd) {
+      clearTimeout(cv.confirmingEnd);
+      cv.confirmingEnd = null;
+      sendCmd({ cmd: "rtmp", action: "stop-vert" });
+      if (els.goVertBtn) { els.goVertBtn.textContent = "Ending 9:16…"; els.goVertBtn.disabled = true; }
+      setTimeout(function () { if (!cv.running) cvStopped(null); }, 8000);
+    } else {
+      cv.confirmingEnd = setTimeout(function () {
+        cv.confirmingEnd = null;
+        if (cv.running && els.goVertBtn) els.goVertBtn.textContent = "End 9:16";
+      }, 4000);
+      if (els.goVertBtn) els.goVertBtn.textContent = "Tap again to end";
+    }
   }
 
   function cloudStarted(f) {
@@ -783,13 +891,13 @@
       var row = document.createElement("div");
       row.className = "p-actions";
 
-      // Feature on stream (instant)
-      var featured = scene.spot === p.session_id;
+      // Feature on stream (instant — or staged in studio mode)
+      var featured = activeScene().spot === p.session_id;
       var feat = actionBtn(
         featured ? "★ Featured" : "Feature",
         false,
         function () {
-          scene.spot = featured ? null : p.session_id;
+          activeScene().spot = featured ? null : p.session_id;
           applyScene();
           queueRender();
         }
@@ -1076,8 +1184,82 @@
     els.modes.addEventListener("click", function (e) {
       var btn = e.target.closest ? e.target.closest(".mode-btn") : null;
       if (!btn) return;
-      scene.mode = btn.getAttribute("data-mode") || "grid";
+      activeScene().mode = btn.getAttribute("data-mode") || "grid";
       applyScene();
+    });
+  }
+
+  /* ---------- Studio mode: stage → TAKE ---------- */
+  function updateStudioUI() {
+    if (els.studioToggle) els.studioToggle.classList.toggle("studio-on", studio.on);
+    if (els.takeBtn) els.takeBtn.hidden = !studio.on;
+    if (els.cutBtn) els.cutBtn.hidden = !studio.on;
+  }
+
+  if (els.studioToggle) {
+    els.studioToggle.addEventListener("click", function () {
+      if (!studio.on && !engineOnline()) {
+        panelError("Studio mode needs the engine online — it renders the preview.");
+        return;
+      }
+      studio.on = !studio.on;
+      if (studio.on) {
+        studio.preview = deepCopy(scene);
+        sendCmd({ cmd: "studio", on: true });
+        sendSceneCmd("scene-preview", studio.preview);
+      } else {
+        studio.preview = null;
+        sendCmd({ cmd: "studio", on: false });
+      }
+      updateStudioUI();
+      renderScene();
+      queueRender();
+    });
+  }
+
+  function doTake(fx) {
+    if (!studio.on || !studio.preview) return;
+    sendCmd({ cmd: "take", fx: fx });
+    scene = deepCopy(studio.preview); // the staged scene is now ON AIR
+    persistState();
+    renderScene();
+    queueRender();
+  }
+
+  if (els.takeBtn) els.takeBtn.addEventListener("click", function () { doTake("fade"); });
+  if (els.cutBtn) els.cutBtn.addEventListener("click", function () { doTake("cut"); });
+
+  /* ---------- Slates ---------- */
+  if (els.slateRow) {
+    els.slateRow.addEventListener("click", function (e) {
+      var btn = e.target.closest ? e.target.closest("[data-slate]") : null;
+      if (!btn) return;
+      var k = btn.getAttribute("data-slate");
+      activeScene().slate = k === "none"
+        ? null
+        : { kind: k, line: els.slateLine ? els.slateLine.value.trim().slice(0, 90) : "" };
+      applyScene();
+    });
+  }
+
+  /* ---------- Stream gains (engine mix) ---------- */
+  var gainTimers = {};
+  function sendGain(source, value) {
+    clearTimeout(gainTimers[source]);
+    gainTimers[source] = setTimeout(function () {
+      sendCmd({ cmd: "gain", source: source, value: value });
+    }, 150);
+  }
+
+  if (els.masterVol) {
+    els.masterVol.addEventListener("input", function () {
+      sendGain("master", Number(els.masterVol.value) / 100);
+    });
+  }
+
+  if (els.mdStreamVol) {
+    els.mdStreamVol.addEventListener("input", function () {
+      sendGain("media", Number(els.mdStreamVol.value) / 100);
     });
   }
 
@@ -1088,7 +1270,7 @@
       if (!btn) return;
       var pos = btn.getAttribute("data-pos");
       if (!/^[tb][lcr]$/.test(pos)) return;
-      scene.cardPos = pos;
+      activeScene().cardPos = pos;
       applyScene();
     });
   }
@@ -1232,19 +1414,41 @@
   if (els.goVertBtn) {
     els.goVertBtn.addEventListener("click", function () {
       if (!callFrame) return;
+      if (cv.running || cv.starting) { requestCvEnd(); return; }
       if (vt.live || vt.starting) { requestVertEnd(); return; }
-
-      // The 9:16 still uses Daily's portrait composition, which mixes ALL
-      // room audio — with the engine running, viewers would hear everything
-      // twice (mics + the engine's mix). The portrait engine canvas lands in E3.
-      if (engineOnline()) {
-        vertNote("9:16 is parked while the engine runs — Daily's portrait layout would double the audio. The portrait engine comes in the next phase.");
-        return;
-      }
 
       var key = els.igKey ? els.igKey.value.trim() : "";
       if (!key) {
         vertNote("Paste your Instagram stream key first (Instagram issues a fresh one per session).");
+        return;
+      }
+
+      // Cloud runner with the portrait canvas → 9:16 via a second FFmpeg.
+      if (cloudCapable() && eng.lastState && eng.lastState.vertical) {
+        cv.starting = true;
+        if (els.goVertBtn) { els.goVertBtn.disabled = true; els.goVertBtn.textContent = "Starting 9:16…"; }
+        persistState();
+        sendCmd({
+          cmd: "rtmp",
+          action: "start-vert",
+          urls: [key.indexOf("rtmp") === 0 ? key : IG_TEMPLATE + key],
+        });
+        cv.startTimeout = setTimeout(function () {
+          if (cv.starting && !cv.running) {
+            cv.starting = false;
+            if (els.goVertBtn) { els.goVertBtn.disabled = false; els.goVertBtn.textContent = "Go Live 9:16"; }
+            vertNote("The cloud runner didn't confirm the 9:16 — check the VPS logs and the Instagram key.");
+          }
+        }, 15000);
+        return;
+      }
+      if (cloudCapable()) {
+        vertNote("The cloud runner isn't rendering the portrait canvas — set VERTICAL=1 in the VPS .env and `docker compose up -d --build` (see runner/README; may need a bigger droplet).");
+        return;
+      }
+      // Browser engine online: Daily's portrait layout would double the audio.
+      if (engineOnline()) {
+        vertNote("9:16 needs the cloud runner (with VERTICAL=1) — Daily's portrait layout would double the audio while the engine runs.");
         return;
       }
 
@@ -1339,26 +1543,38 @@
      ============================================================ */
 
   function renderScene() {
+    var s = activeScene();
     if (els.frameGuide) {
-      if (scene.card) {
+      if (s.card) {
         els.frameGuide.hidden = false;
-        els.lcTitle.textContent = scene.card.title;
-        els.lcSub.textContent = scene.card.subtitle || "";
-        els.lcSub.hidden = !scene.card.subtitle;
+        els.lcTitle.textContent = s.card.title;
+        els.lcSub.textContent = s.card.subtitle || "";
+        els.lcSub.hidden = !s.card.subtitle;
         positionPreviewCard();
       } else {
         els.frameGuide.hidden = true;
       }
       if (els.pvTag) {
         var onAir = bc.live || cs.running;
-        els.pvTag.textContent = onAir ? "LIVE" : "ONLY YOU SEE THIS";
-        els.pvTag.className = "pv-tag" + (onAir ? " is-live" : "");
+        if (studio.on) {
+          els.pvTag.textContent = "PREVIEW — TAKE to air";
+          els.pvTag.className = "pv-tag is-preview";
+        } else {
+          els.pvTag.textContent = onAir ? "LIVE" : "ONLY YOU SEE THIS";
+          els.pvTag.className = "pv-tag" + (onAir ? " is-live" : "");
+        }
       }
     }
-    setActiveModeButton(scene.mode);
+    setActiveModeButton(s.mode);
     if (els.cardPosRow) {
       Array.prototype.forEach.call(els.cardPosRow.querySelectorAll(".pos-btn"), function (b) {
-        b.classList.toggle("active", b.getAttribute("data-pos") === scene.cardPos);
+        b.classList.toggle("active", b.getAttribute("data-pos") === s.cardPos);
+      });
+    }
+    if (els.slateRow) {
+      var slateKind = s.slate ? s.slate.kind : "none";
+      Array.prototype.forEach.call(els.slateRow.querySelectorAll(".slate-btn"), function (b) {
+        b.classList.toggle("active", b.getAttribute("data-slate") === slateKind);
       });
     }
   }
@@ -1366,7 +1582,7 @@
   /* The WYSIWYG card mirrors the broadcast corner exactly. */
   function positionPreviewCard() {
     if (!els.liveCard) return;
-    var pos = /^[tb][lcr]$/.test(scene.cardPos) ? scene.cardPos : "bl";
+    var pos = /^[tb][lcr]$/.test(activeScene().cardPos) ? activeScene().cardPos : "bl";
     var s = els.liveCard.style;
     s.left = "auto"; s.right = "auto"; s.top = "auto"; s.bottom = "auto";
     s.transform = "none";
@@ -1383,13 +1599,14 @@
      ============================================================ */
 
   function setCard(card) {
-    scene.card = card;
+    activeScene().card = card;
     applyScene();
   }
 
   function hideKind(kind) {
-    if (scene.card && scene.card.kind === kind) {
-      scene.card = null;
+    var s = activeScene();
+    if (s.card && s.card.kind === kind) {
+      s.card = null;
       applyScene();
     }
   }

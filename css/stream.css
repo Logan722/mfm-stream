@@ -881,6 +881,20 @@ body.capture-mode::before, body.capture-mode::after { display: none; }
   box-shadow: none;
 }
 
+/* Wide capture (VERTICAL=1): program 16:9 at (0,0), portrait 9:16 at x=1920.
+   FFmpeg crops each region from one 3000×1920 display. */
+body.capture-wide .engine-stage { display: block; position: relative; padding: 0; }
+body.capture-wide #program-canvas {
+  position: absolute; left: 0; top: 0;
+  width: 1920px; height: 1080px;
+}
+body.capture-wide #portrait-canvas {
+  position: absolute; left: 1920px; top: 0;
+  width: 1080px; height: 1920px;
+  border: none; border-radius: 0; box-shadow: none;
+  background: var(--bg-navy-deep);
+}
+
 /* Media panel: file volume */
 .b-sublabel {
   font-size: 0.68rem;
@@ -892,6 +906,34 @@ body.capture-mode::before, body.capture-mode::after { display: none; }
   width: 100%;
   accent-color: var(--gold);
   cursor: pointer;
+}
+
+/* Studio mode controls */
+.bar-btn.studio-on {
+  background: var(--gold);
+  color: var(--bg-navy-deep);
+  border-color: var(--gold);
+}
+
+.take-btn {
+  background: linear-gradient(135deg, var(--fire-light), var(--fire));
+  color: #fff8ef;
+  border-color: var(--fire);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.cut-btn { color: var(--cream); }
+
+.p-btn.active {
+  background: var(--gold);
+  color: var(--bg-navy-deep);
+  border-color: var(--gold);
+}
+
+.pv-tag.is-preview {
+  background: var(--gold-light);
+  color: var(--bg-navy-deep);
 }
 
 /* ============================================================

@@ -68,6 +68,9 @@
         <span class="onair vert" id="vert-chip" hidden>&#9679; 9:16 <span id="vert-timer">00:00</span></span>
       </div>
       <div class="bar-right">
+        <button type="button" class="bar-btn take-btn" id="take-btn" hidden>TAKE</button>
+        <button type="button" class="bar-btn cut-btn" id="cut-btn" hidden>CUT</button>
+        <button type="button" class="bar-btn" id="studio-toggle" title="Stage changes on a preview, then TAKE them to air">Studio</button>
         <button type="button" class="bar-btn" id="copy-link">Copy invite link</button>
         <button type="button" class="bar-btn" id="deck-toggle">Deck &#9662;</button>
         <button type="button" class="bar-btn board-toggle" id="board-toggle">People</button>
@@ -115,6 +118,8 @@
             <label class="b-check"><input type="checkbox" id="custom-on"> Custom RTMP</label>
             <input type="text" id="custom-url" class="b-input" autocomplete="off"
                    placeholder="rtmp://server/app/streamkey">
+            <p class="b-sublabel">Stream master volume</p>
+            <input type="range" id="master-vol" class="b-range" min="0" max="150" value="100">
             <p class="b-row-label">Vertical &mdash; 9:16 &middot; Instagram</p>
             <input type="password" id="ig-key" class="b-input" autocomplete="off"
                    placeholder="Instagram stream key (new one each session)">
@@ -127,6 +132,15 @@
             <p class="b-row-label">Engine &mdash; program feed</p>
             <p class="eng-status"><span class="eng-dot" id="eng-dot"></span> <span id="eng-status">Engine offline</span></p>
             <button type="button" class="p-btn" id="eng-open">Open engine page</button>
+            <p class="b-row-label">Slates</p>
+            <div class="b-modes" id="slate-row">
+              <button type="button" class="p-btn slate-btn active" data-slate="none">None</button>
+              <button type="button" class="p-btn slate-btn" data-slate="soon">Starting soon</button>
+              <button type="button" class="p-btn slate-btn" data-slate="brb">BRB</button>
+              <button type="button" class="p-btn slate-btn" data-slate="end">Goodbye</button>
+            </div>
+            <input type="text" id="slate-line" class="b-input mt6" maxlength="90"
+                   placeholder="Optional line &mdash; e.g. Sunday Service &middot; 10:00 AM">
             <p class="error" id="eng-alert" role="alert" hidden></p>
             <p class="b-hint" id="eng-hint">The engine paints the broadcast &mdash; real brand fonts,
                boxed gold cards, instant switches &mdash; and Go Live locks the stream to it.
@@ -176,6 +190,8 @@
             <div class="b-modes mt6">
               <button type="button" class="p-btn" id="md-play">Play link</button>
             </div>
+            <p class="b-sublabel">Link volume on the stream</p>
+            <input type="range" id="md-stream-vol" class="b-range" min="0" max="150" value="100">
             <button type="button" class="p-btn mt8" id="md-choose">Option 2 &mdash; a file on this computer&hellip;</button>
             <input type="file" id="md-file" accept="video/*" hidden>
             <p class="b-sublabel">File volume &mdash; the room and the stream hear this</p>

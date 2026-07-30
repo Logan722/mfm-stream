@@ -349,12 +349,35 @@ the broadcast ourselves** (hybrid): we paint every pixel; Daily keeps doing tran
   canvas exists. FFmpeg tee shape validated in sandbox; full Docker pipeline untestable
   from the sandbox (no Daily WSS) — first field test = first VPS deploy per runner/README.
 
+### E3 SHIPPED (July 30, 2026)
+- **Studio mode**: console "Studio" toggle → deck edits stage on a PREVIEW scene;
+  **TAKE** (crossfade ~0.35s from a program snapshot) or **CUT** puts it on air. Engine
+  renders the preview on a second canvas (half rate, "PREVIEW" watermark) and publishes
+  it as PROGRAM's screen share — hosts/co-hosts see the monitor in Prebuilt (canReceive
+  already allowed screenVideo); ministers can't. Preview share is skipped while a
+  Daily-locked stream is live (never risk the on-air path). WYSIWYG card tag reads
+  "PREVIEW — TAKE to air". Commands: scene-preview / studio {on} / take {fx}.
+- **Slates**: Engine panel — None / Starting soon / BRB / Goodbye + optional custom line;
+  part of the scene (stages under studio). Slate owns the whole frame (no tiles/cards).
+- **Volume sliders** (engine mix, throttled `gain` cmds): Broadcast panel master;
+  Media panel "link volume on the stream" (media). File playback keeps its own local slider.
+- **9:16 portrait canvas**: `VERTICAL=1` in runner .env → Xvfb widens to 3000×1920;
+  engine renders a 1080×1920 canvas at x=1920 (featured-person composition: cover-crop,
+  top label, bottom card, portrait slates). Main FFmpeg crops 1920:1080:0:0; console
+  "Go Live 9:16" starts a second FFmpeg (crop 1080:1920:1920:0, 3.5 Mbps) via
+  start-vert/stop-vert. Heavier CPU — verify headroom or resize the droplet.
+  Engine heartbeats carry vertical/studio/preview/ffmpegVert; console cv state drives
+  the 9:16 chip/timer. Legacy Daily-portrait path only when NO engine is online.
+- **DRY-RUN-CHECKLIST.md** added at repo root — run twice before any real service.
+- E3 field test pending: studio + take, preview monitor, slates, sliders, 9:16 on a
+  VERTICAL=1 runner.
+
 ### Engine build phases (new chats)
 | Chat | Scope | Status |
 |------|-------|--------|
 | E1 | program.html engine: join, canvas compositor (grid/speaker/featured), Royal Flame cards (l3/prayer/scripture), audio mix, app-message control, console Engine panel + PROGRAM-locked Go Live | ✅ July 30, 2026 |
 | E2 | Cloud runner: Dockerfile (Playwright+Chromium), VPS setup steps, watchdog/auto-restart, engine health in console — PLUS the E2b FFmpeg direct-RTMP exit from Daily streaming | ✅ built July 30, 2026 · ⏳ first VPS deploy pending |
-| E3 | Studio mode v2 (real-video preview/program in console), 9:16 portrait canvas, media volume slider, transitions/slates, dry runs | ⬜ |
+| E3 | Studio mode v2, 9:16 portrait canvas, volume sliders, slates/transitions, dry-run checklist | ✅ built July 30, 2026 · ⏳ field test pending |
 
 ### E1 SHIPPED (July 30, 2026) — how it actually works
 - **`program.html` + `js/engine.js`.** Call-object join as `PROGRAM` (fixed

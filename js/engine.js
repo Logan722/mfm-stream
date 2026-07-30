@@ -41,7 +41,9 @@
   var CAPTURE = qs.get("capture") === "1";
   var MONITOR = qs.get("monitor") === "1";
   var RUNNER = qs.get("runner") === "cloud";
+  var VERTICAL = qs.get("vertical") === "1"; // render the 9:16 portrait canvas too
   var ffmpegState = { running: false, startedAt: 0, detail: "" };
+  var ffmpegVertState = { running: false, startedAt: 0, detail: "" };
 
   var W = 1920, H = 1080, FPS = 30;
   var FADE = 0.22; // card fade seconds
@@ -88,9 +90,33 @@
   canvas.height = H;
   var ctx = canvas.getContext("2d", { alpha: false });
 
+  // Preview canvas (studio monitor — published as PROGRAM's screen share)
+  var previewCanvas = document.createElement("canvas");
+  previewCanvas.width = W;
+  previewCanvas.height = H;
+  var previewCtx = previewCanvas.getContext("2d", { alpha: false });
+
+  // Portrait canvas (9:16 — FFmpeg crops it from the wide display)
+  var portraitCanvas = document.getElementById("portrait-canvas");
+  var portraitCtx = null;
+  if (portraitCanvas && VERTICAL) {
+    portraitCanvas.width = 1080;
+    portraitCanvas.height = 1920;
+    portraitCtx = portraitCanvas.getContext("2d", { alpha: false });
+    portraitCanvas.hidden = false;
+  }
+
   /* ---------- State ---------- */
-  var scene = { mode: "grid", spot: null, card: null, cardPos: "bl" };
+  var scene = { mode: "grid", spot: null, card: null, cardPos: "bl", slate: null };
   var cardDraw = { card: null, alpha: 0 };
+
+  /* Studio mode (E3): a second, STAGED scene the console edits without
+     touching air; TAKE swaps it onto the program with a crossfade. */
+  var studio = { on: false };
+  var scenePreview = null;
+  var cardDrawPrev = { card: null, alpha: 0 };
+  var takeFx = { t: 0, dur: 0.35, snap: null }; // fade from a snapshot of the old program
+  var SLATES = { soon: "WE'LL BEGIN SHORTLY", brb: "BE RIGHT BACK", end: "THANK YOU FOR JOINING US" };
   var call = null;
   var joined = false;
   var live = false;
@@ -337,6 +363,7 @@
   function enterStage() {
     document.body.classList.add("in-call");
     if (CAPTURE) document.body.classList.add("capture-mode");
+    if (CAPTURE && VERTICAL) document.body.classList.add("capture-wide");
     if (els.stageWrap) els.stageWrap.hidden = false;
     if (els.barRoom) els.barRoom.textContent = DEMO ? "demo" : joinedRoom;
     if (els.demoChip) els.demoChip.hidden = !DEMO;
@@ -524,10 +551,23 @@
     if (!sender || !sender.owner) return; // only the host console drives the engine
 
     if (d.cmd === "scene" && d.scene) {
-      if (MODES[d.scene.mode]) scene.mode = d.scene.mode;
-      scene.spot = d.scene.spot && people[d.scene.spot] ? d.scene.spot : null;
-      scene.card = normalizeCard(d.scene.card);
-      if (/^[tb][lcr]$/.test(d.scene.cardPos || "")) scene.cardPos = d.scene.cardPos;
+      scene = normalizeScene(d.scene, scene);
+    } else if (d.cmd === "scene-preview" && d.scene) {
+      studio.on = true;
+      scenePreview = normalizeScene(d.scene, scenePreview || copyScene(scene));
+      ensurePreviewShare();
+    } else if (d.cmd === "studio") {
+      studio.on = !!d.on;
+      if (studio.on) {
+        scenePreview = scenePreview || copyScene(scene);
+        ensurePreviewShare();
+      } else {
+        scenePreview = null;
+        cardDrawPrev = { card: null, alpha: 0 };
+        stopPreviewShare();
+      }
+    } else if (d.cmd === "take") {
+      if (studio.on && scenePreview) doTake(d.fx === "cut" ? "cut" : "fade");
     } else if (d.cmd === "gain") {
       setGain(d.source, d.value);
     } else if (d.cmd === "rtmp") {
@@ -547,15 +587,23 @@
 
   /* runner.js pushes FFmpeg state changes here (start/exit). */
   window.__mfmRunnerEvent = function (ev) {
-    if (ev && ev.ffmpeg) {
+    if (!ev) return;
+    if (ev.ffmpeg) {
       ffmpegState = {
         running: !!ev.ffmpeg.running,
         startedAt: Number(ev.ffmpeg.startedAt) || 0,
         detail: String(ev.ffmpeg.detail || "").slice(0, 200),
       };
-      syncLiveChip();
-      sendStateToOwners();
     }
+    if (ev.ffmpegVert) {
+      ffmpegVertState = {
+        running: !!ev.ffmpegVert.running,
+        startedAt: Number(ev.ffmpegVert.startedAt) || 0,
+        detail: String(ev.ffmpegVert.detail || "").slice(0, 200),
+      };
+    }
+    syncLiveChip();
+    sendStateToOwners();
   };
 
   function normalizeCard(card) {
@@ -565,6 +613,57 @@
       title: String(card.title).slice(0, 80),
       subtitle: String(card.subtitle || "").slice(0, 320),
     };
+  }
+
+  function normalizeScene(sc, base) {
+    var out = base ? copyScene(base) : { mode: "grid", spot: null, card: null, cardPos: "bl", slate: null };
+    if (MODES[sc.mode]) out.mode = sc.mode;
+    out.spot = sc.spot && people[sc.spot] ? sc.spot : null;
+    out.card = normalizeCard(sc.card);
+    if (/^[tb][lcr]$/.test(sc.cardPos || "")) out.cardPos = sc.cardPos;
+    out.slate = sc.slate && SLATES[sc.slate.kind]
+      ? { kind: sc.slate.kind, line: String(sc.slate.line || "").slice(0, 90) }
+      : null;
+    return out;
+  }
+
+  function copyScene(sc) {
+    return JSON.parse(JSON.stringify(sc));
+  }
+
+  function doTake(fx) {
+    if (fx !== "cut") {
+      if (!takeFx.snap) {
+        takeFx.snap = document.createElement("canvas");
+        takeFx.snap.width = W;
+        takeFx.snap.height = H;
+      }
+      takeFx.snap.getContext("2d").drawImage(canvas, 0, 0);
+      takeFx.t = takeFx.dur;
+    }
+    scene = copyScene(scenePreview);
+    cardDraw = { card: scene.card, alpha: scene.card ? 1 : 0 }; // no re-fade on take
+    sendStateToOwners();
+  }
+
+  /* Preview monitor: the preview canvas rides PROGRAM's screen-share track.
+     Hosts/co-hosts can see it (canReceive allows screenVideo); ministers can't.
+     Skipped while a Daily-locked stream is live — never risk the on-air path. */
+  var previewShared = false;
+
+  function ensurePreviewShare() {
+    if (previewShared || !call || !joined || live) return;
+    try {
+      var track = previewCanvas.captureStream(12).getVideoTracks()[0];
+      call.startScreenShare({ mediaStream: new MediaStream([track]) });
+      previewShared = true;
+    } catch (e) { /* monitor is optional — staging still works */ }
+  }
+
+  function stopPreviewShare() {
+    if (!previewShared) return;
+    try { call.stopScreenShare(); } catch (e) { /* fine */ }
+    previewShared = false;
   }
 
   /* ---------- State back to the console ---------- */
@@ -582,6 +681,16 @@
       gains: { media: gains.media, master: gains.master },
       runner: RUNNER ? "cloud" : "browser",
       ffmpeg: ffmpegState,
+      ffmpegVert: ffmpegVertState,
+      vertical: VERTICAL,
+      studio: studio.on,
+      slate: scene.slate ? scene.slate.kind : null,
+      preview: studio.on && scenePreview ? {
+        mode: scenePreview.mode,
+        spot: scenePreview.spot,
+        card: scenePreview.card ? scenePreview.card.kind : null,
+        slate: scenePreview.slate ? scenePreview.slate.kind : null,
+      } : null,
     };
   }
 
@@ -652,10 +761,15 @@
     stepCard(dt);
     curCardBox = cardDraw.card && cardDraw.alpha > 0.05 ? layoutCard(cardDraw.card) : null;
 
+    if (scene.slate) {
+      drawSlate(scene.slate);
+      return; // a slate owns the whole frame — no tiles, no card
+    }
+
     var tiles = visibleTiles();
 
     if (!tiles.length) {
-      drawSlate();
+      drawSlate(null);
     } else if (scene.spot) {
       var spotTile = pickMain(tiles);
       drawTile(spotTile, 0, 0, W, H, { radius: 0, labelTop: true });
@@ -670,6 +784,22 @@
     }
 
     drawCard(curCardBox);
+  }
+
+  /* Render the STAGED scene onto the preview canvas by swapping the module
+     render state — same compositor, different target. */
+  function renderPreview(dt) {
+    if (!studio.on || !scenePreview) return;
+    var oc = ctx, os = scene, ocd = cardDraw, ob = curCardBox;
+    ctx = previewCtx;
+    scene = scenePreview;
+    cardDraw = cardDrawPrev;
+    draw(dt);
+    ctx.font = "700 30px " + SANS;
+    ctx.fillStyle = "rgba(212, 168, 83, 0.92)";
+    ctx.textBaseline = "top";
+    ctx.fillText("PREVIEW", 24, 20);
+    ctx = oc; scene = os; cardDraw = ocd; curCardBox = ob;
   }
 
   /* ---------- Layouts ---------- */
@@ -862,8 +992,8 @@
     ctx.fillText(text, lx + padX, ly + bh / 2 + 1);
   }
 
-  /* ---------- Slate (empty room / pre-service) ---------- */
-  function drawSlate() {
+  /* ---------- Slate (empty room / pre-service / console slates) ---------- */
+  function drawSlate(slate) {
     var g = ctx.createRadialGradient(W * 0.72, -H * 0.1, 100, W * 0.72, -H * 0.1, H * 1.1);
     g.addColorStop(0, "rgba(201, 149, 44, 0.16)");
     g.addColorStop(1, "rgba(201, 149, 44, 0)");
@@ -883,10 +1013,134 @@
     ctx.fillStyle = C.cream;
     ctx.font = "600 34px " + SANS;
     spacedText("MEGA REGION 2 · USA", W / 2, H / 2 + 20, 10);
-    ctx.fillStyle = C.dim;
-    ctx.font = "italic 400 30px " + SERIF;
-    ctx.fillText("“The mountain burned with fire unto the midst of heaven…” — Deuteronomy 4:11", W / 2, H / 2 + 110);
+    if (slate) {
+      ctx.fillStyle = C.goldLight;
+      ctx.font = "600 44px " + SANS;
+      spacedText(SLATES[slate.kind] || "", W / 2, H / 2 + 126, 8);
+      if (slate.line) {
+        ctx.fillStyle = C.dim;
+        ctx.font = "italic 400 30px " + SERIF;
+        ctx.fillText(slate.line, W / 2, H / 2 + 190);
+      }
+    } else {
+      ctx.fillStyle = C.dim;
+      ctx.font = "italic 400 30px " + SERIF;
+      ctx.fillText("“The mountain burned with fire unto the midst of heaven…” — Deuteronomy 4:11", W / 2, H / 2 + 110);
+    }
     ctx.textAlign = "left";
+  }
+
+  /* ---------- Portrait (9:16) — simple focused composition ---------- */
+  function drawPortrait() {
+    if (!portraitCtx) return;
+    var o = ctx;
+    ctx = portraitCtx;
+    try { portraitPaint(); } finally { ctx = o; }
+  }
+
+  function portraitPaint() {
+    var PW = 1080, PH = 1920;
+    ctx.fillStyle = C.navyDeep;
+    ctx.fillRect(0, 0, PW, PH);
+
+    if (scene.slate) { portraitSlate(PW, PH, scene.slate); return; }
+
+    var tiles = visibleTiles();
+    if (!tiles.length) { portraitSlate(PW, PH, null); return; }
+
+    var main = pickMain(tiles);
+    var el = main.el;
+    var vw = el.videoWidth || el.width || 0;
+    var vh = el.videoHeight || el.height || 0;
+    if (vw && vh) {
+      var srcAspect = vw / vh, dstAspect = PW / PH;
+      var sx = 0, sy = 0, sw = vw, sh = vh;
+      if (srcAspect > dstAspect) { sw = vh * dstAspect; sx = (vw - sw) / 2; }
+      else { sh = vw / dstAspect; sy = (vh - sh) / 2; }
+      ctx.drawImage(el, sx, sy, sw, sh, 0, 0, PW, PH);
+    } else {
+      drawPlaceholder(main, 0, 0, PW, PH);
+    }
+
+    if (main.name) {
+      ctx.font = "600 30px " + SANS;
+      var tw2 = ctx.measureText(main.name).width;
+      roundRect(24, 30, tw2 + 34, 54, 8);
+      ctx.fillStyle = "rgba(10, 16, 28, 0.78)";
+      ctx.fill();
+      ctx.fillStyle = C.cream;
+      ctx.textBaseline = "middle";
+      ctx.fillText(main.name, 41, 58);
+    }
+
+    if (cardDraw.card && cardDraw.alpha > 0.05) {
+      portraitCard(PW, PH, cardDraw.card, Math.min(1, cardDraw.alpha));
+    }
+  }
+
+  function portraitSlate(PW, PH, slate) {
+    var g = ctx.createRadialGradient(PW * 0.7, -PH * 0.05, 80, PW * 0.7, -PH * 0.05, PH * 0.8);
+    g.addColorStop(0, "rgba(201, 149, 44, 0.16)");
+    g.addColorStop(1, "rgba(201, 149, 44, 0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, PW, PH);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillStyle = C.gold;
+    ctx.font = "800 130px " + SERIF;
+    ctx.fillText("MFM", PW / 2, PH / 2 - 70);
+    ctx.fillStyle = C.cream;
+    ctx.font = "600 26px " + SANS;
+    spacedText("MEGA REGION 2 · USA", PW / 2, PH / 2, 7);
+    if (slate) {
+      ctx.fillStyle = C.goldLight;
+      ctx.font = "600 34px " + SANS;
+      spacedText(SLATES[slate.kind] || "", PW / 2, PH / 2 + 96, 5);
+    }
+    ctx.textAlign = "left";
+  }
+
+  function portraitCard(PW, PH, card, alpha) {
+    var padX = 26, padY = 22, barW = 6, maxW = 840, subLH = 38;
+    ctx.font = CARD.titleFont;
+    var titleW = Math.min(ctx.measureText(card.title).width, maxW);
+    ctx.font = "400 27px " + SANS;
+    var lines = card.subtitle ? wrapCanvasText(card.subtitle, maxW, 6) : [];
+    var linesW = 0;
+    lines.forEach(function (l) { linesW = Math.max(linesW, ctx.measureText(l).width); });
+    var w = barW + padX * 2 + Math.max(titleW, linesW);
+    var h = padY * 2 + 48 + (lines.length ? 10 + lines.length * subLH - 8 : 0);
+    var x = 48, y = PH - 96 - h;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    roundRect(x, y, w, h, 10);
+    ctx.fillStyle = C.cardBg;
+    ctx.fill();
+    ctx.save();
+    roundRect(x, y, w, h, 10);
+    ctx.clip();
+    ctx.fillStyle = C.gold;
+    ctx.fillRect(x, y, barW, h);
+    ctx.restore();
+    var tx = x + barW + padX, ty = y + padY;
+    ctx.textBaseline = "top";
+    ctx.fillStyle = card.kind === "prayer" ? C.fireLight : C.cream;
+    if (card.kind === "prayer") {
+      ctx.font = "700 23px " + SANS;
+      spacedTextLeft(card.title.toUpperCase(), tx, ty + 6, 2);
+    } else {
+      ctx.font = "650 38px " + SERIF;
+      ctx.fillText(card.title, tx, ty, maxW);
+    }
+    ty += 48;
+    if (lines.length) {
+      ty += 10;
+      ctx.font = "400 27px " + SANS;
+      ctx.fillStyle = card.kind === "prayer" ? C.cream : C.subText;
+      lines.forEach(function (l) { ctx.fillText(l, tx, ty); ty += subLH; });
+    }
+    ctx.restore();
   }
 
   function spacedText(text, cx, y, spacing) {
@@ -1081,6 +1335,7 @@
   var frames = 0;
   var fpsWindow = 0;
   var speakerTick = 0;
+  var frameFlip = false; // preview & portrait render at half rate, alternating
 
   function startLoop() {
     stopLoop();
@@ -1113,6 +1368,18 @@
     }
 
     draw(dt);
+
+    // TAKE crossfade: the old program's last frame melts away over the new one
+    if (takeFx.t > 0 && takeFx.snap) {
+      ctx.globalAlpha = Math.max(0, takeFx.t / takeFx.dur);
+      ctx.drawImage(takeFx.snap, 0, 0);
+      ctx.globalAlpha = 1;
+      takeFx.t -= dt;
+    }
+
+    frameFlip = !frameFlip;
+    if (frameFlip) renderPreview(dt * 2);
+    else if (VERTICAL) drawPortrait();
 
     frames++;
     fpsWindow += dt;
@@ -1206,6 +1473,7 @@
     var mode = qs.get("mode");
     if (MODES[mode]) scene.mode = mode;
     if (/^[tb][lcr]$/.test(qs.get("pos") || "")) scene.cardPos = qs.get("pos");
+    if (SLATES[qs.get("slate")]) scene.slate = { kind: qs.get("slate"), line: qs.get("line") || "" };
     if (qs.get("spot") === "1") scene.spot = "demo-0";
     var cardArg = qs.get("card");
     if (cardArg === "l3") {

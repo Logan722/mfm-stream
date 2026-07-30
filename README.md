@@ -101,7 +101,7 @@ netlify dev        # serves the site + functions at http://localhost:8888
    PROGRAM-locked Go Live, console Engine panel (see the blueprint's E1 notes)
 7. ✅ **E2 cloud runner** — `runner/`: Dockerfile + watchdog + FFmpeg direct RTMP from a VPS
    (no Daily streaming fees/limits); see `runner/README.md` for the VPS setup
-8. ⬜ E3 studio mode v2, 9:16 portrait canvas, media gain sliders
+8. ✅ E3 — studio mode (preview/TAKE), slates, volume sliders, 9:16 portrait canvas (VERTICAL=1)
 9. ⬜ Auth, scheduling, hardening, dry runs
 
 ## Security notes
