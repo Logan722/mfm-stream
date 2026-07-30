@@ -79,6 +79,9 @@
     ppHide: document.getElementById("pp-hide"),
     mdUrl: document.getElementById("md-url"),
     mdPlay: document.getElementById("md-play"),
+    mdChoose: document.getElementById("md-choose"),
+    mdFile: document.getElementById("md-file"),
+    mdVol: document.getElementById("md-vol"),
     mdPause: document.getElementById("md-pause"),
     mdStop: document.getElementById("md-stop"),
     mdStatus: document.getElementById("md-status"),
@@ -421,19 +424,22 @@
       })
       .on("remote-media-player-started", function (ev) {
         md.sessionId = ev && ev.session_id;
+        md.paused = false;
         mdNote("Playing — visible to the room and the stream.");
-        mdButtons("playing");
+        mdButtons();
       })
       .on("remote-media-player-updated", function (ev) {
         var st = ev && ev.remoteMediaPlayerState && ev.remoteMediaPlayerState.state;
-        if (st === "paused") { mdNote("Paused."); mdButtons("paused"); }
-        else if (st === "playing") { mdNote("Playing."); mdButtons("playing"); }
+        if (st === "paused") { md.paused = true; mdNote("Paused."); }
+        else if (st === "playing") { md.paused = false; mdNote("Playing."); }
+        mdButtons();
       })
       .on("remote-media-player-stopped", function (ev) {
         md.sessionId = null;
+        md.paused = false;
         var why = ev && ev.reason ? " (" + ev.reason + ")" : "";
-        mdNote("Stopped" + why + ".");
-        mdButtons("idle");
+        if (!mf.active) mdNote("Stopped" + why + ".");
+        mdButtons();
       })
       .on("left-meeting", endCall)
       .on("error", function (ev) {
@@ -463,6 +469,7 @@
   function endCall() {
     onLiveStopped();
     vertStopped();
+    stopFilePlayback(true);
     eng.lastState = null;
     eng.alert = "";
     releaseWakeLock();
@@ -1242,23 +1249,46 @@
     els.ppHide.addEventListener("click", function () { hideKind("prayer"); });
   }
 
-  /* ---------- Media: play an external video into the room ---------- */
-  var md = { sessionId: null };
+  /* ============================================================
+     Media — two sources, one transport:
+       Option 1 (link): Daily remote media player (server fetches
+                        a public .mp4/.m3u8; no volume control)
+       Option 2 (file): a video FILE from this computer, played in
+                        a hidden <video> and published through the
+                        host's Share slot (startScreenShare with a
+                        custom mediaStream). Audio routes through a
+                        gain node → the slider controls what the
+                        room AND the stream hear, live. The engine
+                        letterboxes it into the big slot and mixes
+                        its audio like any screen share.
+     ============================================================ */
+  var md = { sessionId: null, paused: false }; // link mode
+  var mf = { active: false, paused: false, el: null, ac: null, gain: null, url: null, name: "" }; // file mode
 
   function mdNote(msg) {
     if (els.mdStatus) els.mdStatus.textContent = msg;
   }
 
-  function mdButtons(state) {
-    if (els.mdPlay) els.mdPlay.textContent = state === "paused" ? "Resume" : "Play";
-    if (els.mdPause) els.mdPause.disabled = state !== "playing";
-    if (els.mdStop) els.mdStop.disabled = state === "idle";
+  function mdMode() {
+    return mf.active ? "file" : (md.sessionId ? "link" : null);
   }
-  mdButtons("idle");
 
+  function mdButtons() {
+    var mode = mdMode();
+    var paused = mode === "file" ? mf.paused : md.paused;
+    if (els.mdPause) {
+      els.mdPause.disabled = !mode;
+      els.mdPause.textContent = paused ? "Resume" : "Pause";
+    }
+    if (els.mdStop) els.mdStop.disabled = !mode;
+    if (els.mdPlay) els.mdPlay.disabled = mode === "file";
+  }
+  mdButtons();
+
+  /* ---------- Option 1: link ---------- */
   if (els.mdPlay) {
     els.mdPlay.addEventListener("click", function () {
-      if (!callFrame) return;
+      if (!callFrame || mf.active) return;
 
       // Resume if paused
       if (md.sessionId) {
@@ -1285,7 +1315,7 @@
           .catch(function (err) {
             mdNote("Could not play: " + ((err && err.errorMsg) || (err && err.message) || err) +
               " — the link must be a direct, publicly reachable video file.");
-            mdButtons("idle");
+            mdButtons();
           });
       } catch (e) {
         mdNote("Could not play: " + (e.message || e));
@@ -1293,17 +1323,139 @@
     });
   }
 
+  /* ---------- Option 2: a file on this computer ---------- */
+  if (els.mdChoose) {
+    els.mdChoose.addEventListener("click", function () {
+      if (!callFrame) { mdNote("Join the room first, then choose a file."); return; }
+      els.mdFile && els.mdFile.click();
+    });
+  }
+
+  if (els.mdFile) {
+    els.mdFile.addEventListener("change", function () {
+      var f = els.mdFile.files && els.mdFile.files[0];
+      els.mdFile.value = ""; // so the same file can be chosen again later
+      if (f) startFilePlayback(f);
+    });
+  }
+
+  function mdVolValue() {
+    var raw = els.mdVol ? Number(els.mdVol.value) : 90;
+    if (isNaN(raw)) raw = 90;
+    return Math.max(0, Math.min(1, raw / 100));
+  }
+
+  if (els.mdVol) {
+    els.mdVol.addEventListener("input", function () {
+      if (mf.gain) mf.gain.gain.value = mdVolValue();
+    });
+  }
+
+  function startFilePlayback(file) {
+    if (!callFrame) return;
+    // One media source at a time
+    if (md.sessionId) { try { callFrame.stopRemoteMediaPlayer(md.sessionId); } catch (e) { /* fine */ } }
+    stopFilePlayback(true);
+
+    var v = document.createElement("video");
+    mf.url = URL.createObjectURL(file);
+    mf.el = v;
+    mf.name = file.name;
+    v.src = mf.url;
+    v.playsInline = true;
+
+    mdNote("Loading “" + file.name + "”…");
+
+    v.play().then(function () {
+      var cap = v.captureStream ? v.captureStream()
+        : (v.mozCaptureStream ? v.mozCaptureStream() : null);
+      var videoTrack = cap && cap.getVideoTracks()[0];
+      if (!videoTrack) {
+        stopFilePlayback(true);
+        mdNote("This browser can't capture the file — use Chrome or Edge on a computer.");
+        return;
+      }
+
+      // Audio: file → gain (the slider) → published track + your speakers.
+      var AC = window.AudioContext || window.webkitAudioContext;
+      mf.ac = new AC();
+      var src = mf.ac.createMediaElementSource(v);
+      mf.gain = mf.ac.createGain();
+      mf.gain.gain.value = mdVolValue();
+      var dest = mf.ac.createMediaStreamDestination();
+      src.connect(mf.gain);
+      mf.gain.connect(dest);               // → the room + the stream
+      mf.gain.connect(mf.ac.destination);  // → your speakers (you hear what they hear)
+
+      var tracks = [videoTrack];
+      var at = dest.stream.getAudioTracks()[0];
+      if (at) tracks.push(at);
+
+      try {
+        callFrame.startScreenShare({ mediaStream: new MediaStream(tracks) });
+      } catch (err) {
+        stopFilePlayback(true);
+        mdNote("Could not share the file: " + (err.message || err));
+        return;
+      }
+
+      mf.active = true;
+      mf.paused = false;
+      v.onended = function () { stopFilePlayback(); mdNote("File finished."); };
+      mdNote("Playing “" + mf.name + "” for the room and the stream. Slider = live volume. (Uses your Share slot.)");
+      mdButtons();
+    }).catch(function () {
+      stopFilePlayback(true);
+      mdNote("Couldn't play that file — MP4 (H.264) works best.");
+    });
+  }
+
+  function stopFilePlayback(silent) {
+    var was = mf.active;
+    mf.active = false;
+    mf.paused = false;
+    if (was && callFrame) { try { callFrame.stopScreenShare(); } catch (e) { /* fine */ } }
+    if (mf.el) {
+      mf.el.onended = null;
+      try { mf.el.pause(); mf.el.removeAttribute("src"); mf.el.load(); } catch (e) { /* fine */ }
+      mf.el = null;
+    }
+    if (mf.url) { try { URL.revokeObjectURL(mf.url); } catch (e) { /* fine */ } mf.url = null; }
+    if (mf.ac) { try { mf.ac.close(); } catch (e) { /* fine */ } mf.ac = null; }
+    mf.gain = null;
+    if (!silent && was) mdNote("Stopped.");
+    mdButtons();
+  }
+
+  /* ---------- Shared transport ---------- */
   if (els.mdPause) {
     els.mdPause.addEventListener("click", function () {
+      if (mf.active) {
+        if (mf.paused) {
+          mf.el && mf.el.play();
+          mf.paused = false;
+          mdNote("Playing.");
+        } else {
+          mf.el && mf.el.pause();
+          mf.paused = true;
+          mdNote("Paused — the stream holds the last frame.");
+        }
+        mdButtons();
+        return;
+      }
       if (!callFrame || !md.sessionId) return;
       try {
-        callFrame.updateRemoteMediaPlayer({ session_id: md.sessionId, settings: { state: "pause" } });
+        callFrame.updateRemoteMediaPlayer({
+          session_id: md.sessionId,
+          settings: { state: md.paused ? "play" : "pause" },
+        });
       } catch (e) { mdNote("Could not pause: " + (e.message || e)); }
     });
   }
 
   if (els.mdStop) {
     els.mdStop.addEventListener("click", function () {
+      if (mf.active) { stopFilePlayback(); return; }
       if (!callFrame || !md.sessionId) return;
       try {
         callFrame.stopRemoteMediaPlayer(md.sessionId);

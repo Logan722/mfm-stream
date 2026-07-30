@@ -866,6 +866,19 @@ body.deck-hidden .deck { display: none; }
   animation: onair-pulse 2s ease-in-out infinite;
 }
 
+/* Media panel: file volume */
+.b-sublabel {
+  font-size: 0.68rem;
+  color: var(--text-dim-navy);
+  margin: 10px 0 4px;
+}
+
+.b-range {
+  width: 100%;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+
 /* ============================================================
    Small screens
    ============================================================ */

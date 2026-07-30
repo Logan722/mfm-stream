@@ -168,15 +168,23 @@ browser (laptop or phone). Two views of the same app:
 - **Brand scriptures as one-tap buttons:** Jer 23:29, Deut 4:11, Jer 20:9, Obadiah 1:17
   (all four verified working against the API). Verses cached per session; Enter key works.
 
-### Media panel (July 2026)
-- Deck panel "Media — play a video": direct `.mp4`/`.m3u8` URL → Daily remote media
-  player (`startRemoteMediaPlayer`) — the video joins as its own tile for the room AND
-  the stream. Play / Pause / Resume / Stop; status + errors surfaced in the panel.
-- **No server-side volume knob exists** for the media player. Full-volume-control
-  alternative (documented in the panel): Share a browser tab playing the video with
-  "Also share tab audio" — the tab player's slider controls what everyone hears.
-- Per-participant volume rebalancing on the stream mix isn't a thing anywhere in the
-  compositor: each person's level = their mic. Tools: mute, coaching, mic distance.
+### Media panel (July 2026 · reworked July 30 with two options)
+- **Option 1 — link:** direct `.mp4`/`.m3u8` URL → Daily remote media player
+  (`startRemoteMediaPlayer`) — the video joins as its own tile for the room AND the
+  stream. No volume control (server-side player has none).
+- **Option 2 — a FILE from the host's computer (new, July 30):** file picker → hidden
+  `<video>` → `startScreenShare({ mediaStream })` publishes it through the host's Share
+  slot. Audio routes file → GainNode → published track + host's speakers, so the panel's
+  **volume slider controls what the room AND the stream hear, live** — the volume knob
+  the link option never had. Works regardless of where the engine runs (browser or the
+  future VPS): the engine letterboxes the share into the big slot and mixes its audio
+  like any screen share. One media source at a time (starting one stops the other);
+  a playing file occupies the host's Share slot; MP4 (H.264) is the safe format;
+  shared transport: Pause (stream holds last frame) / Resume / Stop; ends cleanly when
+  the file finishes. Chrome/Edge on desktop (needs `captureStream`).
+- Per-participant volume rebalancing of MICS still isn't a thing: each person's level =
+  their mic. Tools: mute, coaching, mic distance. (Engine-side per-source gain exists
+  for media/master via app-message; slider UI for that lands in E3.)
 
 ### Overlay investigation — RESOLVED for composition, one check open (July 30, 2026)
 - ✅ **The `composition_id: "daily:baseline"` fix works**: a 3-person field test showed
