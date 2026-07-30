@@ -100,10 +100,17 @@ browser (laptop or phone). Two views of the same app:
 - **Pre-program interactive meeting:** everyone sees & hears each other (the part the studios couldn't do).
 - Private rooms — entry only with a token minted by our function.
 
-### Host & co-host controls
-- Owner tokens carry Daily's built-in host powers now (mute, remove).
-- Custom console later: bring to stage, spotlight, layouts, co-host promotion,
-  push lower thirds / prayer points / scripture, start/stop broadcast & recording.
+### Host & co-host controls (Phase 2 ✅ — hybrid console)
+- `host.html` is now a console: Daily Prebuilt video area + custom Royal Flame control board.
+- Board (live, auto-updating): participant list with mic/cam status, per-person **mute**,
+  **camera-off**, **remove** (two-tap confirm), **mute-all** (spares hosts/co-hosts).
+- **Co-host promotion, live:** grants Daily permission `canAdmin: ['participants']` —
+  the co-host gets admin powers (incl. in their own Prebuilt People panel). Demote reverses it.
+- Remote **unmute is impossible by design** (browser privacy): hosts mute; people unmute themselves.
+- Decision: hybrid over full-custom video UI — the must-not-fail part (seeing/hearing 20 people)
+  stays on Daily's proven Prebuilt; custom video comes with the broadcast phase.
+- Still to come on this board: bring-to-stage/spotlight & layouts (with Phase 3 composition),
+  overlays, scripture, start/stop broadcast.
 
 ### Broadcast & overlays (later phases)
 - Two layouts: **16:9 landscape** (YouTube/Facebook), **9:16 vertical** (Instagram).
@@ -135,13 +142,16 @@ browser (laptop or phone). Two views of the same app:
 ```
 mfm-stream/
 ├── index.html                    Participant join page (Royal Flame, camera/mic preview)
-├── host.html                     Host entrance — owner token via HOST_KEY
-├── css/stream.css                Royal Flame design system for the platform
-├── js/join.js                    Shared join logic (Daily Prebuilt, themed)
+├── host.html                     Host console — pre-join (HOST_KEY) + Prebuilt video + control board
+├── css/stream.css                Royal Flame design system (incl. console board styles)
+├── js/join.js                    Participant join logic (Daily Prebuilt, themed)
+├── js/console.js                 Host console: join + participant board (mute/cam/co-host/eject)
 ├── netlify/functions/token.js    Creates private rooms + mints tokens (Daily REST)
 ├── netlify.toml                  /api/* → functions; publish "."
 └── MFM-STREAMING-APP-REFERENCE.md  This file
 ```
+
+Deployed at **streamr2.netlify.app** (participants: `/?room=…` · host: `/host.html`).
 
 ### Workflow note for future chats
 Browser chats push via the GitHub API (PAT with Contents read/write, re-fetch each file's
@@ -164,7 +174,8 @@ Rotate the PAT after each session.
 ## Phased roadmap
 
 1. **Foundation room** — join link + multi-person interactive room. *Prove the core.* ✅
-2. **Host controls** — custom console: stage management, mute, spotlight, layouts, co-hosts.
+2. **Host controls** — hybrid console: participant board, mute/cam/remove, co-hosts. ✅
+   *(spotlight & layouts land with Phase 3 composition, where they affect what viewers see)*
 3. **Broadcast layouts** — 16:9 + 9:16 compositions, Royal Flame styling.
 4. **Overlays & Bible** — lower thirds, prayer points, scripture overlay.
 5. **Multistream** — YouTube + Facebook; Instagram vertical secondary.
@@ -178,7 +189,7 @@ Rotate the PAT after each session.
 |------|-------|--------|
 | 0 | Setup — repo, Netlify, Daily account + token function | ✅ July 2026 |
 | 1 | Foundation room (join + interactive room, Daily Prebuilt) | ✅ July 2026 |
-| 2 | Host / co-host controls (custom console) | ⬜ |
+| 2 | Host / co-host controls (hybrid console: Prebuilt video + custom board) | ✅ July 2026 |
 | 3 | Broadcast compositions (16:9 + 9:16, Royal Flame) | ⬜ |
 | 4 | Overlays — lower thirds + prayer points | ⬜ |
 | 5 | Bible / scripture integration | ⬜ |
@@ -201,6 +212,8 @@ Rotate the PAT after each session.
 | Token lifetime | 6 hours | Covers pre-program + full service |
 | Default room | `sanctuary` | Host can spin up others (e.g. `rehearsal`) on the fly |
 | Repo | Dedicated `mfm-stream` | Separate from the website; own deploy pipeline |
+| Console architecture (Phase 2) | Hybrid: Prebuilt video + custom board | Must-not-fail video stays on Daily's proven UI; custom video arrives with broadcast phase |
+| Co-host mechanism | Live grant of `canAdmin: ['participants']` | No rejoin needed; demotable; scoped to participant admin (not streaming) |
 
 ## Open questions
 
