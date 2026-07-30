@@ -113,6 +113,8 @@
     lastState: null,   // last { mode, spot, card, live, tiles, fps } heartbeat
     lastSeen: 0,       // Date.now() of that heartbeat
     alert: "",         // sticky red message (engine dropped mid-broadcast)
+    cloudSid: null,    // session_id of the CLOUD engine (from its heartbeats)
+    cloudSeen: 0,      // when the cloud engine last heartbeat
   };
 
   /* ---------- Scene: what the 16:9 broadcast shows ---------- */
@@ -375,6 +377,7 @@
         }
         if (isEngine(ev && ev.participant)) {
           eng.lastState = null;
+          if (id === eng.cloudSid) { eng.cloudSid = null; eng.cloudSeen = 0; }
           if (bc.live && bc.engineLocked === id) {
             eng.alert = "ENGINE DISCONNECTED while live — viewers see a frozen frame. Reopen the engine page; when it's back, End broadcast and Go Live again to re-lock.";
             panelError("Engine disconnected while live — see the Engine panel.");
@@ -388,7 +391,13 @@
         if (d && d.t === "mfm-engine" && d.state) {
           eng.lastState = d.state;
           eng.lastSeen = Date.now();
-          syncCloudStream(d.state);
+          if (d.state.runner === "cloud") {
+            eng.cloudSid = ev.fromId;
+            eng.cloudSeen = Date.now();
+            // Only the CLOUD engine's heartbeats speak for the FFmpeg stream —
+            // a stray browser engine must not flap the LIVE state.
+            syncCloudStream(d.state);
+          }
           updateEnginePanel();
         }
       })
@@ -486,6 +495,8 @@
     if (cs.startTimeout) { clearTimeout(cs.startTimeout); cs.startTimeout = null; }
     eng.lastState = null;
     eng.alert = "";
+    eng.cloudSid = null;
+    eng.cloudSeen = 0;
     releaseWakeLock();
     if (callFrame) {
       try { callFrame.destroy(); } catch (e) { /* already gone */ }
@@ -521,10 +532,20 @@
 
   function engineParticipant() {
     var people = allParticipants();
+    var found = null;
     for (var i = 0; i < people.length; i++) {
-      if (isEngine(people[i])) return people[i];
+      if (isEngine(people[i])) {
+        // With duplicates, the CLOUD engine wins — commands and Go Live
+        // must target the VPS, not a stray browser tab.
+        if (eng.cloudSid && people[i].session_id === eng.cloudSid) return people[i];
+        if (!found) found = people[i];
+      }
     }
-    return null;
+    return found;
+  }
+
+  function engineCount() {
+    return allParticipants().filter(isEngine).length;
   }
 
   function engineOnline() {
@@ -554,8 +575,9 @@
 
   /* ---------- Cloud stream (VPS FFmpeg) ---------- */
   function cloudCapable() {
-    return engineOnline() && eng.lastState && eng.lastState.runner === "cloud" &&
-      (Date.now() - eng.lastSeen) < 12000;
+    var p = engineParticipant();
+    return !!(p && eng.cloudSid && p.session_id === eng.cloudSid &&
+      (Date.now() - eng.cloudSeen) < 12000);
   }
 
   function sendRtmp(action, urls) {
@@ -685,9 +707,13 @@
         : "Engine online";
     }
     if (els.engAlert) {
-      if (eng.alert) {
+      var dupWarn = engineCount() > 1
+        ? "TWO engines are in the room — close the extra one (a program.html tab still open somewhere?). Controls target the cloud engine, but the stray one wastes bandwidth and clutters tiles."
+        : "";
+      var msg = eng.alert || dupWarn;
+      if (msg) {
         els.engAlert.hidden = false;
-        els.engAlert.textContent = eng.alert;
+        els.engAlert.textContent = msg;
       } else {
         els.engAlert.hidden = true;
         els.engAlert.textContent = "";

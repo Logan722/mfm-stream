@@ -338,8 +338,13 @@ the broadcast ourselves** (hybrid): we paint every pixel; Daily keeps doing tran
   reported in heartbeats; `window.__MFM` liveness beacon; `window.__mfmRunnerEvent`
   receives FFmpeg state.
 - **Go Live priority (automatic)**: cloud FFmpeg → Daily single-participant PROGRAM lock
-  (engine in a browser) → legacy VCS. One PROGRAM per room — don't run browser engine and
-  VPS engine together. Console closing does NOT stop the cloud stream (that's the point).
+  (engine in a browser) → legacy VCS. Console closing does NOT stop the cloud stream
+  (that's the point).
+- **Duplicate-engine defenses (field-found July 30 — a leftover browser engine tab ran
+  alongside the fresh VPS engine)**: engines never composite/mix a fellow PROGRAM (no
+  mirror-hall); the console tracks the CLOUD engine's session id from its heartbeats —
+  commands, Go Live, and FFmpeg state all bind to it, never to a stray browser engine;
+  Engine panel shows a red warning while two engines are present.
 - **9:16 vertical**: still parked; becomes a second FFmpeg encode once the E3 portrait
   canvas exists. FFmpeg tee shape validated in sandbox; full Docker pipeline untestable
   from the sandbox (no Daily WSS) — first field test = first VPS deploy per runner/README.

@@ -217,6 +217,12 @@
 
   function syncParticipant(p) {
     if (!p || p.local) return;
+    // Never composite or mix a FELLOW engine (someone left a second engine
+    // running) — that way lies a mirror hall and doubled audio.
+    if (p.user_name === "PROGRAM" || p.user_id === "mfm-program-engine") {
+      dropParticipant(p.session_id);
+      return;
+    }
     var id = p.session_id;
     var rec = people[id];
     if (!rec) {
