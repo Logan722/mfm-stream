@@ -72,7 +72,10 @@
       call.updateParticipant(p.session_id, {
         setSubscribedTracks: { video: true, screenVideo: true, custom: true, audio: false },
       });
-    } catch (err) { /* retried on next update */ }
+    } catch (err) {
+      var ve = document.getElementById("vt-empty");
+      if (ve) ve.textContent = "9:16 subscribe error: " + ((err && err.message) || err);
+    }
   }
 
   function attach(e) {

@@ -935,12 +935,14 @@ body.studio-open .console-main > .stage { display: none; }
   display: none;
   flex-direction: column;
   gap: 10px;
-  width: 116px;
+  width: 96px;
   z-index: 3;
 }
 
+.mon-controls .bar-btn { padding: 11px 6px; font-size: 0.86rem; }
+
 body.studio-open .mon-controls { display: flex; }
-.monitors.has-vert .mon-controls { left: 39%; }
+.monitors.has-vert .mon-controls { left: 36%; }
 
 .mon-controls .bar-btn {
   width: 100%;

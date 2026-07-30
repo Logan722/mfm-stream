@@ -47,7 +47,7 @@
 
   var W = 1920, H = 1080, FPS = 30;
   var FADE = 0.22; // card fade seconds
-  var BUILD = "jul30-n8"; // shown in the console Engine panel — stale-engine detector
+  var BUILD = "jul30-n9"; // shown in the console Engine panel — stale-engine detector
 
   /* ---------- Royal Flame tokens ---------- */
   var C = {
@@ -680,14 +680,28 @@
      Skipped while a Daily-locked stream is live — never risk the on-air path. */
   var previewShared = false;
   var portraitShared = false;
+  var portraitErr = "";
 
   function ensurePortraitShare() {
     if (portraitShared || !VERTICAL || !call || !joined) return;
     try {
       var t = portraitCanvas.captureStream(12).getVideoTracks()[0];
-      call.startCustomTrack({ track: t, trackName: "portrait" });
-      portraitShared = true;
-    } catch (e) { /* older daily-js — the studio pane just stays empty */ }
+      var pr = call.startCustomTrack({ track: t, trackName: "portrait" });
+      if (pr && pr.then) {
+        pr.then(function () {
+          portraitShared = true;
+          portraitErr = "";
+          sendStateToOwners();
+        }).catch(function (e) {
+          portraitErr = String((e && (e.errorMsg || e.message)) || e).slice(0, 90);
+          sendStateToOwners();
+        });
+      } else {
+        portraitShared = true;
+      }
+    } catch (e) {
+      portraitErr = String((e && e.message) || e).slice(0, 90);
+    }
   }
 
   function ensurePreviewShare() {
@@ -723,6 +737,7 @@
       ffmpeg: ffmpegState,
       ffmpegVert: ffmpegVertState,
       vertical: VERTICAL,
+      portraitShare: !VERTICAL ? "off" : (portraitShared ? "ok" : (portraitErr || "pending")),
       studio: studio.on,
       slate: scene.slate ? "on" : null,
       preview: studio.on && scenePreview ? {

@@ -830,7 +830,9 @@
       var name = st && st.runner === "cloud" ? "Cloud engine" : "Engine";
       els.engStatus.textContent = st && !stale
         ? name + " online · " + (st.spot ? "featured" : st.mode) + " · " + st.tiles + " tile" + (st.tiles === 1 ? "" : "s") + " · " + st.fps + " fps · " +
-          (st.build ? "build " + st.build : "OLD CODE — restart the droplet")
+          (st.build ? "build " + st.build : "OLD CODE — restart the droplet") +
+          (st.vertical && st.portraitShare && st.portraitShare !== "ok"
+            ? " · 9:16 feed: " + st.portraitShare : "")
         : "Engine online";
     }
     if (els.engAlert) {
