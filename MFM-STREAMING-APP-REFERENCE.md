@@ -231,21 +231,23 @@ browser (laptop or phone). Two views of the same app:
 | Env vars (Netlify) | `DAILY_API_KEY` (Daily dashboard → Developers), `HOST_KEY` (host passphrase) |
 | API endpoint | `POST /api/token` → `netlify/functions/token.js` |
 
-### Current file structure (Phase 1)
+### Current file structure
 
 ```
 mfm-stream/
 ├── index.html                    Participant join page (Royal Flame, camera/mic preview)
-├── host.html                     Host console — pre-join (HOST_KEY) + Prebuilt video + control board
-├── css/stream.css                Royal Flame design system (incl. console + broadcast styles)
+├── host.html                     Host console — pre-join (HOST_KEY) + Prebuilt video + deck (incl. Engine panel)
+├── program.html                  PROGRAM ENGINE — joins as PROGRAM, composites the broadcast (E1)
+├── css/stream.css                Royal Flame design system (console + broadcast + engine styles)
 ├── js/join.js                    Participant join logic (Daily Prebuilt, themed)
-├── js/console.js                 Host console: deck (broadcast, lower third, prayer points, scripture), people, preview
-├── netlify/functions/token.js    Creates private rooms + mints tokens (Daily REST)
+├── js/console.js                 Host console: deck, people, engine wiring, PROGRAM-locked Go Live
+├── js/engine.js                  The compositor: canvas layouts, Royal Flame cards, WebAudio mix, app-message control
+├── netlify/functions/token.js    Rooms + tokens (host / participant / engine roles, canReceive echo rules)
 ├── netlify.toml                  /api/* → functions; publish "."
 └── MFM-STREAMING-APP-REFERENCE.md  This file
 ```
 
-Deployed at **streamr2.netlify.app** (participants: `/?room=…` · host: `/host.html`).
+Deployed at **streamr2.netlify.app** (participants: `/?room=…` · host: `/host.html` · engine: `/program.html`).
 
 ### Workflow note for future chats
 Browser chats push via the GitHub API (PAT with Contents read/write, re-fetch each file's
@@ -302,13 +304,54 @@ the broadcast ourselves** (hybrid): we paint every pixel; Daily keeps doing tran
 ### Engine build phases (new chats)
 | Chat | Scope | Status |
 |------|-------|--------|
-| E1 | program.html engine: join, canvas compositor (grid/speaker/featured), Royal Flame cards (l3/prayer/scripture), audio mix, app-message control, console Engine panel + PROGRAM-locked Go Live | ⬜ |
+| E1 | program.html engine: join, canvas compositor (grid/speaker/featured), Royal Flame cards (l3/prayer/scripture), audio mix, app-message control, console Engine panel + PROGRAM-locked Go Live | ✅ July 30, 2026 |
 | E2 | Cloud runner: Dockerfile (Playwright+Chromium), VPS setup steps, watchdog/auto-restart, engine health in console | ⬜ |
 | E3 | Studio mode v2 (real-video preview/program in console), 9:16 portrait canvas, media volume slider, transitions/slates, dry runs | ⬜ |
 
-Until E1 lands: current platform stays usable — room/moderation/media fully work;
-broadcast works with start-time composition (labels); cards/mid-stream changes are
-unreliable on Daily's new pipeline. `/api/diag` stays for reference (remove in E3).
+### E1 SHIPPED (July 30, 2026) — how it actually works
+- **`program.html` + `js/engine.js`.** Call-object join as `PROGRAM` (fixed
+  `user_id: mfm-program-engine`), 1920×1080 canvas at 30fps published as its camera,
+  WebAudio mix (mics + screen-share audio + media player, per-source gain — media/master
+  gain commands ready; slider UI lands in E3) published as its mic
+  (`micAudioMode: "music"` + `quality-optimized` send settings).
+  Layouts: grid / speaker (dominant) / split / PiP / featured — featured full-bleeds any
+  participant; screenshare and playing media auto-take the big slot. Boxed Royal Flame
+  cards (lower third / prayer / scripture) with REAL Fraunces + Inter Tight, gold bar,
+  fade + rise, "THE WORD" kicker on scripture; tile name labels step aside under the card.
+  Empty room → branded slate. **Demo mode** for design checks with no Daily connection:
+  `/program.html?demo=1&mode=dominant&card=scripture&n=6&spot=1`.
+  `?room=…&key=…&autostart=1` is the headless/VPS path for E2.
+- **Active speaker is computed IN the engine** (per-source RMS) — Daily's
+  active-speaker event can't be used: the engine's own published mix would always win it.
+- **Echo & visibility (the audio trap, solved).** The engine's mic is the mix of the
+  whole room — anyone hearing it hears themselves delayed. Daily docs: the
+  `single-participant` preset streams ONLY that participant's audio+video, so the
+  broadcast carries the mix exactly once. In the room, tokens carry
+  `permissions.canReceive` rules: **participants receive NOTHING from PROGRAM**
+  (Dawn's choice — ministers see only an inert navy tile named PROGRAM, no media, no
+  bandwidth), **hosts receive video only** (confidence monitor, never audio; the console
+  also self-blocks at runtime as belt-and-braces). Co-host promotion grants PROGRAM
+  video; demotion removes it. The name PROGRAM is reserved server-side.
+- **token.js `engine` role**: guarded by `ENGINE_KEY` env var, falling back to
+  `HOST_KEY` until one is set (body field `engineKey`); engine tokens last 12h.
+  If Daily ever rejects the canReceive shape, minting retries plain so joining never breaks.
+- **Console.** New **Engine deck panel** (status dot, heartbeat readout — layout/tiles/fps,
+  "Open engine page", red alerts). **Go Live: engine online → locks the stream to
+  PROGRAM's session id (`single-participant`), set once, NEVER updated mid-stream; engine
+  offline → auto-fallback to the legacy VCS custom composition with a visible warning**
+  (Dawn's choice: a service is never blocked). Every deck action (layout, feature, cards)
+  reaches the engine as one idempotent `{t:"mfm-cmd", cmd:"scene"}` app-message (owners
+  only are obeyed); the engine heartbeats `{t:"mfm-engine", state}` to owners every 3s.
+  The engine is excluded from People, mute-all, and the room count. If the engine drops
+  mid-broadcast: loud red alert — viewers see a frozen frame; a rejoined engine has a NEW
+  session id, so the fix is End broadcast → Go Live again (re-lock). The **9:16 button is
+  parked while the engine runs** (Daily's portrait layout mixes ALL room audio → doubled
+  sound; the portrait engine canvas lands in E3).
+- **Operational notes:** keep the engine tab visible in its own window (background-tab
+  throttling; the draw loop is interval-based and WebRTC pages are exempt from the worst
+  of it, but don't tempt it — the VPS in E2 removes this concern). Engine untested against
+  a real Daily room from the sandbox (WSS blocked) — first field test happens in Dawn's
+  browser. `/api/diag` stays for reference (remove in E3).
 
 ## Phased roadmap
 
@@ -359,6 +402,11 @@ unreliable on Daily's new pipeline. `/api/diag` stays for reference (remove in E
 | Broadcast composition | Always VCS `custom` preset | Overlays (Phases 4–5) layer in live; switching to native presets would drop them |
 | Stream keys | localStorage on host device only | Never server-side, never in repo; host pastes once, browser remembers |
 | Stream spotlight | `videoSettings.preferredParticipantIds` + mode `single` | Verified baseline param; auto-release when the person leaves |
+| Engine Go Live fallback (E1) | Auto: engine → PROGRAM lock; offline → legacy VCS + warning | Dawn, July 2026 — a service is never blocked on the engine |
+| PROGRAM visibility (E1) | Ministers: blocked entirely (inert tile only); hosts/co-hosts: video, never audio | Dawn, July 2026 — clean room view; echo impossible by construction |
+| Engine echo prevention (E1) | Token `permissions.canReceive` byUserId + single-participant preset (streams only PROGRAM's a/v per Daily docs) | Server-enforced; Prebuilt untouched; console self-blocks as backup |
+| Engine key (E1) | `ENGINE_KEY` env var, HOST_KEY fallback until set | Separate rotatable secret for the future VPS without touching the host key |
+| Active speaker in engine (E1) | Own per-source RMS detection in WebAudio | Daily's event would always flag the engine's own mix as the speaker |
 
 ## Open questions
 

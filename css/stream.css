@@ -792,6 +792,81 @@ body.deck-hidden .deck { display: none; }
 .board-toggle { display: none; }
 
 /* ============================================================
+   Program Engine (program.html) + console Engine panel
+   ============================================================ */
+.engine-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: #0a101c;
+}
+
+.engine-stage canvas {
+  max-width: 100%;
+  max-height: 100%;
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--line-navy-strong);
+  border-radius: 8px;
+  background: var(--bg-navy-deep);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+}
+
+.engine-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 22px;
+  padding: 9px 18px;
+  border-top: 1px solid var(--line-navy);
+  background: var(--bg-navy);
+  font-size: 0.78rem;
+  color: var(--text-on-navy);
+}
+
+.engine-foot .eng-note { color: var(--text-dim-navy); margin-left: auto; }
+
+.eng-fps {
+  font-size: 0.75rem;
+  color: var(--text-dim-navy);
+  white-space: nowrap;
+}
+
+.demo-chip { padding: 3px 10px; font-size: 0.6rem; }
+
+/* Console: Engine panel */
+.eng-status {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--cream);
+  margin: 4px 0 10px;
+}
+
+.eng-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: rgba(106, 122, 150, 0.45);
+}
+
+.eng-dot.on {
+  background: #3ec46d;
+  box-shadow: 0 0 0 4px rgba(62, 196, 109, 0.18);
+}
+
+.eng-dot.locked {
+  background: #d63b3b;
+  box-shadow: 0 0 0 4px rgba(214, 59, 59, 0.2);
+  animation: onair-pulse 2s ease-in-out infinite;
+}
+
+/* ============================================================
    Small screens
    ============================================================ */
 @media (max-width: 900px) {

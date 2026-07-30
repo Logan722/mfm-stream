@@ -6,10 +6,15 @@
    what the broadcast composition shows — same content, same
    corner. Tagged LIVE when broadcasting, OFF AIR when not.
 
-   Broadcast: two instances via Daily live streaming
-     - main  16:9  (YouTube / Facebook / custom RTMP), VCS custom
-     - vert  9:16  (Instagram), portrait preset — needs Daily
-       support to allow a 2nd concurrent instance on the domain
+   Broadcast (since E1, July 2026):
+     - Engine online → the stream locks to PROGRAM (program.html's
+       canvas) with the single-participant preset, set once and
+       never updated mid-stream. All switching happens in-canvas,
+       driven from here by app-messages.
+     - Engine offline → legacy Daily VCS composition as a fallback
+       (cards/mid-stream changes unreliable on the new pipeline).
+     - vert 9:16 (Instagram): Daily portrait preset; parked while
+       the engine runs (double audio) until the E3 portrait canvas.
    ============================================================ */
 
 (function () {
@@ -82,12 +87,29 @@
     scGo: document.getElementById("sc-go"),
     scHide: document.getElementById("sc-hide"),
     scStatus: document.getElementById("sc-status"),
+    // Engine panel
+    engDot: document.getElementById("eng-dot"),
+    engStatus: document.getElementById("eng-status"),
+    engOpen: document.getElementById("eng-open"),
+    engAlert: document.getElementById("eng-alert"),
   };
 
   var callFrame = null;
   var joinedRoom = "sanctuary";
   var renderQueued = false;
   var confirmingEject = {}; // session_id -> timeout handle
+
+  /* ---------- Program Engine (program.html) ---------- */
+  // The engine joins as PROGRAM with this fixed user_id. When it's online,
+  // Go Live locks the stream to it (single-participant preset — set once,
+  // never updated mid-stream) and every scene change travels by app-message.
+  // Offline → legacy Daily composition as a fallback (Dawn, July 2026).
+  var ENGINE_UID = "mfm-program-engine";
+  var eng = {
+    lastState: null,   // last { mode, spot, card, live, tiles, fps } heartbeat
+    lastSeen: 0,       // Date.now() of that heartbeat
+    alert: "",         // sticky red message (engine dropped mid-broadcast)
+  };
 
   /* ---------- Scene: what the 16:9 broadcast shows ---------- */
   var scene = {
@@ -102,14 +124,16 @@
      Vertical 9:16 = a second instance with a fixed UUID. */
   var VERT_ID = "b2b2b2b2-2222-4b22-8b22-b2b2b2b2b2b2";
 
-  var bc = { live: false, starting: false, startedAt: 0, timerId: null, confirmingEnd: null };
+  var bc = { live: false, starting: false, startedAt: 0, timerId: null, confirmingEnd: null,
+             engineLocked: null }; // session_id the live stream is locked to (engine mode)
   var vt = { live: false, starting: false, startedAt: 0, timerId: null, confirmingEnd: null };
 
-  /* Every scene edit is instant: persist, push to the stream if live,
-     and mirror on the video. What you see is what streams. */
+  /* Every scene edit is instant: persist, hand it to the engine (or the
+     legacy stream if the engine is offline), mirror on the video. */
   function applyScene() {
     persistState();
-    if (bc.live) pushLayout();
+    if (engineOnline()) sendEngineScene(); // keep the canvas current (even warm, off-stream)
+    if (bc.live && !bc.engineLocked) pushLayout(); // fallback stream still gets pushes
     renderScene();
   }
 
@@ -305,9 +329,28 @@
     callFrame
       .on("joined-meeting", function () {
         acquireWakeLock();
+        // Belt & braces: never hear the engine's mix (its mic IS the room —
+        // hearing it would be an echo of everyone, including yourself).
+        try {
+          var recv = { base: true, byUserId: {} };
+          recv.byUserId[ENGINE_UID] = { video: true, screenVideo: true, audio: false, screenAudio: false };
+          callFrame.updateParticipant("local", { updatePermissions: { canReceive: recv } });
+        } catch (e) { /* token-side rules still apply */ }
+        pingEngine();
         queueRender();
       })
-      .on("participant-joined", queueRender)
+      .on("participant-joined", function (ev) {
+        if (isEngine(ev && ev.participant)) {
+          eng.alert = "";
+          sendEngineScene(); // a fresh engine picks up the current scene
+          if (bc.live && bc.engineLocked &&
+              ev.participant.session_id !== bc.engineLocked) {
+            eng.alert = "The engine is back, but the live stream is still locked to its old identity — End broadcast, then Go Live again to re-lock.";
+          }
+          updateEnginePanel();
+        }
+        queueRender();
+      })
       .on("participant-updated", queueRender)
       .on("participant-left", function (ev) {
         var id = ev && ev.participant && ev.participant.session_id;
@@ -315,7 +358,23 @@
           scene.spot = null;
           applyScene();
         }
+        if (isEngine(ev && ev.participant)) {
+          eng.lastState = null;
+          if (bc.live && bc.engineLocked === id) {
+            eng.alert = "ENGINE DISCONNECTED while live — viewers see a frozen frame. Reopen the engine page; when it's back, End broadcast and Go Live again to re-lock.";
+            panelError("Engine disconnected while live — see the Engine panel.");
+          }
+          updateEnginePanel();
+        }
         queueRender();
+      })
+      .on("app-message", function (ev) {
+        var d = ev && ev.data;
+        if (d && d.t === "mfm-engine" && d.state) {
+          eng.lastState = d.state;
+          eng.lastSeen = Date.now();
+          updateEnginePanel();
+        }
       })
       .on("live-streaming-started", function (ev) {
         if (isVert(ev)) vertStarted(); else onLiveStarted();
@@ -393,6 +452,8 @@
   function endCall() {
     onLiveStopped();
     vertStopped();
+    eng.lastState = null;
+    eng.alert = "";
     releaseWakeLock();
     if (callFrame) {
       try { callFrame.destroy(); } catch (e) { /* already gone */ }
@@ -420,6 +481,72 @@
     return Object.keys(map).map(function (k) { return map[k]; });
   }
 
+  /* ---------- Engine helpers ---------- */
+  function isEngine(p) {
+    return !!p && !p.local &&
+      (p.user_id === ENGINE_UID || p.user_name === "PROGRAM");
+  }
+
+  function engineParticipant() {
+    var people = allParticipants();
+    for (var i = 0; i < people.length; i++) {
+      if (isEngine(people[i])) return people[i];
+    }
+    return null;
+  }
+
+  function engineOnline() {
+    return !!engineParticipant();
+  }
+
+  function sendEngineScene() {
+    var p = engineParticipant();
+    if (!p || !callFrame) return;
+    try {
+      callFrame.sendAppMessage({
+        t: "mfm-cmd",
+        cmd: "scene",
+        scene: { mode: scene.mode, spot: scene.spot, card: scene.card },
+      }, p.session_id);
+    } catch (e) { /* heartbeat mismatch will show in the panel */ }
+  }
+
+  function pingEngine() {
+    var p = engineParticipant();
+    if (!p || !callFrame) return;
+    try {
+      callFrame.sendAppMessage({ t: "mfm-cmd", cmd: "ping" }, p.session_id);
+    } catch (e) { /* fine */ }
+    sendEngineScene();
+  }
+
+  function updateEnginePanel() {
+    if (!els.engDot || !els.engStatus) return;
+    var p = engineParticipant();
+    var locked = bc.live && bc.engineLocked;
+    els.engDot.className = "eng-dot" + (locked && p ? " locked" : p ? " on" : "");
+    if (!p) {
+      els.engStatus.textContent = "Engine offline — Go Live would use the Daily fallback";
+    } else if (locked) {
+      els.engStatus.textContent = "LIVE — stream locked to PROGRAM";
+    } else {
+      var st = eng.lastState;
+      var stale = Date.now() - eng.lastSeen > 10000;
+      els.engStatus.textContent = st && !stale
+        ? "Engine online · " + (st.spot ? "featured" : st.mode) + " · " + st.tiles + " tile" + (st.tiles === 1 ? "" : "s") + " · " + st.fps + " fps"
+        : "Engine online";
+    }
+    if (els.engAlert) {
+      if (eng.alert) {
+        els.engAlert.hidden = false;
+        els.engAlert.textContent = eng.alert;
+      } else {
+        els.engAlert.hidden = true;
+        els.engAlert.textContent = "";
+      }
+    }
+  }
+
   function isCohost(p) {
     var ca = p && p.permissions && p.permissions.canAdmin;
     if (!ca) return false;
@@ -436,7 +563,10 @@
   function renderBoard() {
     if (!els.plist || !callFrame) return;
 
-    var people = allParticipants();
+    updateEnginePanel();
+
+    // The engine isn't a person — it lives in the Engine panel, not People.
+    var people = allParticipants().filter(function (p) { return !isEngine(p); });
 
     people.sort(function (a, b) {
       if (a.local !== b.local) return a.local ? -1 : 1;
@@ -513,8 +643,17 @@
           cohost ? "Demote" : "Make co-host",
           false,
           function () {
+            // Co-hosts also get to SEE the PROGRAM feed (still never hear it);
+            // demoting hides it again (participants joined with it blocked).
+            var recv = { base: true, byUserId: {} };
+            recv.byUserId[ENGINE_UID] = cohost
+              ? false
+              : { video: true, screenVideo: true, audio: false, screenAudio: false };
             callFrame.updateParticipant(p.session_id, {
-              updatePermissions: { canAdmin: cohost ? false : ["participants"] },
+              updatePermissions: {
+                canAdmin: cohost ? false : ["participants"],
+                canReceive: recv,
+              },
             });
           }
         ));
@@ -577,7 +716,8 @@
     els.muteAllBtn.addEventListener("click", function () {
       if (!callFrame) return;
       allParticipants().forEach(function (p) {
-        if (!p.local && !p.owner && !isCohost(p) && p.audio) {
+        // Never mute the engine — its "mic" is the broadcast audio itself.
+        if (!p.local && !p.owner && !isCohost(p) && !isEngine(p) && p.audio) {
           callFrame.updateParticipant(p.session_id, { setAudio: false });
         }
       });
@@ -601,6 +741,13 @@
       } else {
         window.prompt("Copy this invite link:", link);
       }
+    });
+  }
+
+  /* ---------- Engine panel: open the engine page ---------- */
+  if (els.engOpen) {
+    els.engOpen.addEventListener("click", function () {
+      window.open("/program.html?room=" + encodeURIComponent(joinedRoom), "_blank");
     });
   }
 
@@ -774,6 +921,25 @@
       els.goLiveBtn.textContent = "Connecting…";
       persistState();
 
+      // Engine online → lock the stream to PROGRAM with the bulletproof
+      // single-participant preset. Set ONCE at start, never updated
+      // mid-stream — every switch happens inside the engine's canvas.
+      // Engine offline → legacy Daily composition (auto fallback).
+      var engp = engineParticipant();
+      bc.engineLocked = engp ? engp.session_id : null;
+      var layout;
+      if (engp) {
+        sendEngineScene(); // make sure the canvas shows the current scene
+        layout = { preset: "single-participant", session_id: engp.session_id };
+      } else {
+        layout = {
+          preset: "custom",
+          composition_id: "daily:baseline", // REQUIRED — without it Daily discards the custom layout
+          composition_params: compositionParams(),
+        };
+        panelError("Engine offline — streaming with the Daily fallback. Cards and mid-stream changes may not reach viewers. Open the engine page for the reliable path.");
+      }
+
       try {
         // Main 16:9 runs as the DEFAULT instance (no instanceId) for maximum
         // compatibility; only the vertical stream uses an explicit instance.
@@ -781,11 +947,8 @@
           rtmpUrl: eps.length === 1 ? eps[0] : eps,
           width: 1920,
           height: 1080,
-          layout: {
-            preset: "custom",
-            composition_id: "daily:baseline", // REQUIRED — without it Daily discards the custom layout
-            composition_params: compositionParams(),
-          },
+          fps: 30,
+          layout: layout,
         });
       } catch (err) {
         bc.starting = false;
@@ -815,6 +978,7 @@
 
   function pushLayout() {
     if (!callFrame || !bc.live) return;
+    if (bc.engineLocked) return; // engine mode: the stream layout is never touched
     try {
       callFrame.updateLiveStreaming({
         layout: {
@@ -843,13 +1007,17 @@
     if (bc.timerId) clearInterval(bc.timerId);
     bc.timerId = setInterval(tickMain, 1000);
     tickMain();
-    panelError("");
+    if (bc.engineLocked) panelError("");
+    updateEnginePanel();
     renderScene();
   }
 
   function onLiveStopped() {
     bc.live = false;
     bc.starting = false;
+    bc.engineLocked = null;
+    if (eng.alert && eng.alert.indexOf("ENGINE DISCONNECTED") === 0) eng.alert = "";
+    updateEnginePanel();
     if (bc.timerId) { clearInterval(bc.timerId); bc.timerId = null; }
     if (bc.confirmingEnd) { clearTimeout(bc.confirmingEnd); bc.confirmingEnd = null; }
     if (els.liveChip) els.liveChip.hidden = true;
@@ -866,6 +1034,14 @@
     els.goVertBtn.addEventListener("click", function () {
       if (!callFrame) return;
       if (vt.live || vt.starting) { requestVertEnd(); return; }
+
+      // The 9:16 still uses Daily's portrait composition, which mixes ALL
+      // room audio — with the engine running, viewers would hear everything
+      // twice (mics + the engine's mix). The portrait engine canvas lands in E3.
+      if (engineOnline()) {
+        vertNote("9:16 is parked while the engine runs — Daily's portrait layout would double the audio. The portrait engine comes in the next phase.");
+        return;
+      }
 
       var key = els.igKey ? els.igKey.value.trim() : "";
       if (!key) {

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Program Engine — MFM Mega Region 2 USA Live</title>
+  <meta name="description" content="Program Engine for the MFM Mega Region 2 USA live platform — composites the broadcast.">
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Cpath%20d='M16%202c3%206-4%208-2%2013%201-2%203-3%204-2%202%203-1%205-1%208%205-1%209-5%209-10C26%204%2018%206%2016%202zM10%2014c-2%203-4%205-4%209%200%204%203%207%207%208-2-3-3-5-2-8-2-2-2-6-1-9z'%20fill='%23c9952c'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..900&family=Inter+Tight:wght@300..700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/stream.css">
+</head>
+<body>
+
+  <header class="site-head">
+    <div class="brand">
+      <span class="brand-mark">MFM</span>
+      <span class="brand-text">Mega Region 2 <em>· USA</em></span>
+    </div>
+    <span class="role-chip">Program Engine</span>
+  </header>
+
+  <main class="join-shell">
+    <section class="join-card">
+      <p class="eyebrow">Broadcast Compositor</p>
+      <h1>Start the <span class="gold">Engine</span></h1>
+      <p class="scripture">&ldquo;Is not my word like as a fire? saith the LORD&hellip;&rdquo; &mdash; Jeremiah 23:29</p>
+
+      <form id="join-form" autocomplete="off">
+        <label for="engine-key">Engine key</label>
+        <input id="engine-key" name="engine-key" type="password" autocomplete="current-password"
+               placeholder="ENGINE_KEY (or HOST_KEY) set in Netlify" required>
+
+        <label for="room">Room</label>
+        <input id="room" name="room" type="text" maxlength="40"
+               placeholder="sanctuary" value="sanctuary">
+
+        <button type="submit" id="join-btn" class="primary">Start the Engine</button>
+        <p class="hint">Joins the room as <strong>PROGRAM</strong> and paints the broadcast:
+           layouts, Royal Flame cards, real brand fonts, mixed audio. The console&rsquo;s
+           Go&nbsp;Live locks the stream to this feed. Keep this tab visible, in its own window.</p>
+        <p class="error" id="error" role="alert" hidden></p>
+      </form>
+    </section>
+  </main>
+
+  <footer class="site-foot">
+    &ldquo;The mountain burned with fire unto the midst of heaven&hellip;&rdquo; &mdash; Deuteronomy 4:11
+  </footer>
+
+  <!-- Engine view: the program canvas IS the broadcast frame -->
+  <div class="stage-wrap" id="stage-wrap" hidden>
+    <div class="stage-bar">
+      <div class="brand">
+        <span class="brand-mark">MFM</span>
+        <span class="brand-text">Mega Region 2 <em>· Program</em></span>
+      </div>
+      <div class="bar-mid">
+        <span class="bar-room-chip">Room: <strong id="bar-room">sanctuary</strong></span>
+        <span class="bar-count" id="bar-count"></span>
+        <span class="onair" id="live-chip" hidden>&#9679; ON THE STREAM</span>
+        <span class="role-chip demo-chip" id="demo-chip" hidden>Demo</span>
+      </div>
+      <div class="bar-right">
+        <span class="eng-fps" id="fps-label"></span>
+        <button type="button" class="bar-btn" id="leave-btn">Stop engine</button>
+      </div>
+    </div>
+
+    <div class="engine-stage">
+      <canvas id="program-canvas" width="1920" height="1080"></canvas>
+    </div>
+
+    <div class="engine-foot">
+      <span id="st-layout">Layout: grid</span>
+      <span id="st-card">Card: none</span>
+      <span id="st-audio">Audio: —</span>
+      <span id="st-note" class="eng-note">This canvas is exactly what viewers see. The console drives it.</span>
+    </div>
+  </div>
+
+  <script crossorigin src="https://unpkg.com/@daily-co/daily-js"></script>
+  <script src="/js/engine.js"></script>
+</body>
+</html>

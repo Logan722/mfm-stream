@@ -15,15 +15,18 @@ fire `#e85d26`, Fraunces + Inter Tight).
 
 ---
 
-## What's here (Phase 1 — Foundation room)
+## What's here
 
 ```
 mfm-stream/
 ├── index.html                    Participant join page — name, camera/mic preview, join
-├── host.html                     Host entrance — owner token (host key required)
+├── host.html                     Host console — owner token + production deck (broadcast, cards, engine)
+├── program.html                  Program Engine — composites the broadcast on a canvas (joins as PROGRAM)
 ├── css/stream.css                Royal Flame design system for the platform
 ├── js/join.js                    Shared join logic (Daily Prebuilt)
-├── netlify/functions/token.js    Serverless: creates Daily rooms + mints meeting tokens
+├── js/console.js                 Host console logic (deck, people, engine wiring, Go Live)
+├── js/engine.js                  The compositor: layouts, Royal Flame cards, WebAudio mix
+├── netlify/functions/token.js    Serverless: rooms + tokens (host / participant / engine roles)
 ├── netlify.toml                  Netlify config (/api/* → functions)
 └── MFM-STREAMING-APP-REFERENCE.md   Project blueprint (canonical reference)
 ```
@@ -48,6 +51,7 @@ get standard join tokens.
    |---|---|
    | `DAILY_API_KEY` | Your Daily API key — dashboard.daily.co → **Developers** tab. Paste it into Netlify only; never into the repo, frontend, or chat. |
    | `HOST_KEY` | A passphrase you invent. The host page asks for it before issuing an owner token. |
+   | `ENGINE_KEY` | Optional. A separate passphrase for the Program Engine page (`/program.html`). If unset, the engine accepts `HOST_KEY`. |
 
 3. **Redeploy** so the functions pick up the variables: Deploys → **Trigger deploy → Deploy site**.
 
@@ -89,12 +93,14 @@ netlify dev        # serves the site + functions at http://localhost:8888
 ## Roadmap
 
 1. ✅ **Foundation room** — join link, token function, interactive room (Daily Prebuilt)
-2. ⬜ Host/co-host controls — custom console: stage, mute, spotlight, layouts
-3. ⬜ Broadcast templates — 16:9 + 9:16 composed layouts, Royal Flame styling
-4. ⬜ Overlays — lower thirds + prayer points
-5. ⬜ Scripture — KJV via bible-api.com, one-tap brand scriptures
-6. ⬜ Multistream — YouTube + Facebook (primary), Instagram vertical (secondary)
-7. ⬜ Auth, scheduling, hardening, dry runs
+2. ✅ Host/co-host controls — hybrid console: participant board, mute, co-hosts
+3. ✅ Broadcast — 16:9 multistream (YouTube ×2 / Facebook / custom RTMP), layouts, spotlight
+4. ✅ Overlays — lower thirds + prayer points
+5. ✅ Scripture — KJV via bible-api.com, one-tap brand scriptures
+6. ✅ **Program Engine (E1)** — self-composited broadcast: `program.html` canvas + audio mix,
+   PROGRAM-locked Go Live, console Engine panel (see the blueprint's E1 notes)
+7. ⬜ E2 cloud runner (VPS + headless Chromium) · E3 studio mode v2, 9:16 portrait canvas
+8. ⬜ Auth, scheduling, hardening, dry runs
 
 ## Security notes
 
