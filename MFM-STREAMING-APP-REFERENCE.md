@@ -386,6 +386,21 @@ the broadcast ourselves** (hybrid): we paint every pixel; Daily keeps doing tran
   looks), image FLIERS as slates (her H&D flier — likely via /fliers/ images in the repo
   + URL slate), fade-to-black. Candidate scope for the hardening/E4 chat.
 
+### Field round 2 (July 30, late) — studio approved; new asks
+- ✅ Studio monitors + transition approved by Dawn ("did exactly what I loved").
+- **Name labels now OFF the broadcast by default** — scene.labels, toggle in the Engine
+  panel ("Name labels on the stream"), persists, stages under studio. Room always shows names.
+- **MONITOR is now presence-hidden** (token `permissions.hasPresence: false`, plain-token
+  fallback if rejected) — ministers shouldn't see it at all. **PROGRAM still shows an
+  inert tile**: hiding ITS presence would break how the console finds/commands the engine —
+  needs a session-id-from-heartbeats refactor + careful test. Dawn wants it gone: queued.
+- **NEXT CHAT SCOPE (Dawn's asks, from her OBS mixer screenshots): AUDIO MIXER** —
+  per-participant faders in People (engine already has per-source gain nodes; add
+  cmd gain {source:"person", sid}), master compressor/limiter chain in the engine mix,
+  meters if feasible. Plus: saved SCENES (one-tap looks), image FLIERS as slates,
+  fade-to-black, hide PROGRAM presence test, phone-rotation guidance (engine already
+  adapts to rotated tracks live; rotation lock is the usual culprit).
+
 ### Engine build phases (new chats)
 | Chat | Scope | Status |
 |------|-------|--------|

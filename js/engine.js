@@ -107,7 +107,7 @@
   }
 
   /* ---------- State ---------- */
-  var scene = { mode: "grid", spot: null, card: null, cardPos: "bl", slate: null };
+  var scene = { mode: "grid", spot: null, card: null, cardPos: "bl", slate: null, labels: false };
   var cardDraw = { card: null, alpha: 0 };
 
   /* Studio mode (E3): a second, STAGED scene the console edits without
@@ -616,7 +616,8 @@
   }
 
   function normalizeScene(sc, base) {
-    var out = base ? copyScene(base) : { mode: "grid", spot: null, card: null, cardPos: "bl", slate: null };
+    var out = base ? copyScene(base) : { mode: "grid", spot: null, card: null, cardPos: "bl", slate: null, labels: false };
+    out.labels = !!sc.labels; // Dawn (July 30): names OFF the broadcast by default
     if (MODES[sc.mode]) out.mode = sc.mode;
     out.spot = sc.spot && people[sc.spot] ? sc.spot : null;
     out.card = normalizeCard(sc.card);
@@ -962,7 +963,7 @@
   }
 
   function drawLabel(name, x, y, w, h, top) {
-    if (!name) return;
+    if (!name || !scene.labels) return; // room shows names; the stream only if toggled
     var fs = Math.max(17, Math.min(24, Math.round(w * 0.033)));
     ctx.font = "600 " + fs + "px " + SANS;
     var padX = Math.round(fs * 0.6);
@@ -1062,7 +1063,7 @@
       drawPlaceholder(main, 0, 0, PW, PH);
     }
 
-    if (main.name) {
+    if (main.name && scene.labels) {
       ctx.font = "600 30px " + SANS;
       var tw2 = ctx.measureText(main.name).width;
       roundRect(24, 30, tw2 + 34, 54, 8);
@@ -1474,6 +1475,7 @@
     if (MODES[mode]) scene.mode = mode;
     if (/^[tb][lcr]$/.test(qs.get("pos") || "")) scene.cardPos = qs.get("pos");
     if (SLATES[qs.get("slate")]) scene.slate = { kind: qs.get("slate"), line: qs.get("line") || "" };
+    if (qs.get("labels") === "1") scene.labels = true;
     if (qs.get("spot") === "1") scene.spot = "demo-0";
     var cardArg = qs.get("card");
     if (cardArg === "l3") {

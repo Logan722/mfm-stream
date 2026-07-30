@@ -197,7 +197,7 @@ async function mintTokenForRole(apiKey, role, roomName, userName) {
       return await mintToken(apiKey, {
         ...base,
         user_id: "mfm-monitor",
-        permissions: { canReceive: { base: false, byUserId: onlyEngine } },
+        permissions: { hasPresence: false, canReceive: { base: false, byUserId: onlyEngine } },
       });
     } catch (err) {
       console.error("monitor mint with canReceive failed — retrying plain:", err);

@@ -102,6 +102,7 @@
     cutBtn: document.getElementById("cut-btn"),
     slateRow: document.getElementById("slate-row"),
     slateLine: document.getElementById("slate-line"),
+    labelsOn: document.getElementById("labels-on"),
     masterVol: document.getElementById("master-vol"),
     mdStreamVol: document.getElementById("md-stream-vol"),
   };
@@ -132,6 +133,7 @@
     mode: "grid",     // grid | dominant | split | pip
     spot: null,       // null | session_id featured full-screen
     slate: null,      // null | { kind: soon|brb|end, line }
+    labels: false,    // names on the STREAM (room always shows them)
   };
   var ppIdx = 0;
 
@@ -224,6 +226,8 @@
     if (els.ppList && savedOv.points) els.ppList.value = savedOv.points;
     if (typeof savedOv.ppIdx === "number") ppIdx = savedOv.ppIdx;
     if (/^[tb][lcr]$/.test(savedOv.cardPos || "")) scene.cardPos = savedOv.cardPos;
+    scene.labels = !!savedOv.labels;
+    if (els.labelsOn) els.labelsOn.checked = scene.labels;
   } catch (e) { /* fine */ }
 
   function rememberIdentity() {
@@ -256,6 +260,7 @@
         points: els.ppList ? els.ppList.value : "",
         ppIdx: ppIdx,
         cardPos: scene.cardPos,
+        labels: scene.labels,
       }));
     } catch (e) { /* fine */ }
   }
@@ -604,7 +609,7 @@
     if (!scn) return;
     sendCmd({
       cmd: cmd,
-      scene: { mode: scn.mode, spot: scn.spot, card: scn.card, cardPos: scn.cardPos, slate: scn.slate },
+      scene: { mode: scn.mode, spot: scn.spot, card: scn.card, cardPos: scn.cardPos, slate: scn.slate, labels: scn.labels },
     });
   }
 
@@ -1285,6 +1290,13 @@
 
   if (els.takeBtn) els.takeBtn.addEventListener("click", function () { doTake("fade"); });
   if (els.cutBtn) els.cutBtn.addEventListener("click", function () { doTake("cut"); });
+
+  if (els.labelsOn) {
+    els.labelsOn.addEventListener("change", function () {
+      activeScene().labels = !!els.labelsOn.checked;
+      applyScene();
+    });
+  }
 
   /* ---------- Slates ---------- */
   if (els.slateRow) {
