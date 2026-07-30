@@ -80,9 +80,13 @@ exports.handler = async (event) => {
   const role =
     body.role === "host" ? "host" :
     body.role === "engine" ? "engine" :
+    body.role === "monitor" ? "monitor" :
     "participant";
 
-  const name = role === "engine" ? ENGINE_NAME : String(body.name || "").trim().slice(0, 40);
+  const name =
+    role === "engine" ? ENGINE_NAME :
+    role === "monitor" ? "MONITOR" :
+    String(body.name || "").trim().slice(0, 40);
   if (!name) {
     return json(400, { error: "A display name is required." });
   }
@@ -94,8 +98,9 @@ exports.handler = async (event) => {
 
   const room = cleanRoomName(body.room) || DEFAULT_ROOM;
 
-  // Host role is guarded by HOST_KEY — owner tokens are powerful.
-  if (role === "host") {
+  // Host and monitor roles are guarded by HOST_KEY (the monitor is the
+  // console's own preview/program window — it receives ONLY the engine).
+  if (role === "host" || role === "monitor") {
     const hostKey = process.env.HOST_KEY;
     if (!hostKey) {
       return json(500, {
@@ -181,6 +186,23 @@ async function mintTokenForRole(apiKey, role, roomName, userName) {
 
   if (role === "engine") {
     return mintToken(apiKey, { ...base, user_id: ENGINE_USER_ID });
+  }
+
+  if (role === "monitor") {
+    // Receives nothing but the engine's camera (program) + screen (preview);
+    // publishes nothing at all.
+    const onlyEngine = {};
+    onlyEngine[ENGINE_USER_ID] = { video: true, screenVideo: true, audio: false, screenAudio: false };
+    try {
+      return await mintToken(apiKey, {
+        ...base,
+        user_id: "mfm-monitor",
+        permissions: { canReceive: { base: false, byUserId: onlyEngine } },
+      });
+    } catch (err) {
+      console.error("monitor mint with canReceive failed — retrying plain:", err);
+      return mintToken(apiKey, { ...base, user_id: "mfm-monitor" });
+    }
   }
 
   const blockEngine = {};

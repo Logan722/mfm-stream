@@ -565,6 +565,10 @@
       (p.user_id === ENGINE_UID || p.user_name === "PROGRAM");
   }
 
+  function isSystem(p) { // engine or the console's own monitor connection
+    return isEngine(p) || (!!p && !p.local && (p.user_id === "mfm-monitor" || p.user_name === "MONITOR"));
+  }
+
   function engineParticipant() {
     var people = allParticipants();
     var found = null;
@@ -847,8 +851,8 @@
 
     updateEnginePanel();
 
-    // The engine isn't a person — it lives in the Engine panel, not People.
-    var people = allParticipants().filter(function (p) { return !isEngine(p); });
+    // Engine + monitor aren't people — they live in the Engine panel.
+    var people = allParticipants().filter(function (p) { return !isSystem(p); });
 
     people.sort(function (a, b) {
       if (a.local !== b.local) return a.local ? -1 : 1;
@@ -999,7 +1003,7 @@
       if (!callFrame) return;
       allParticipants().forEach(function (p) {
         // Never mute the engine — its "mic" is the broadcast audio itself.
-        if (!p.local && !p.owner && !isCohost(p) && !isEngine(p) && p.audio) {
+        if (!p.local && !p.owner && !isCohost(p) && !isSystem(p) && p.audio) {
           callFrame.updateParticipant(p.session_id, { setAudio: false });
         }
       });
@@ -1194,6 +1198,48 @@
     if (els.studioToggle) els.studioToggle.classList.toggle("studio-on", studio.on);
     if (els.takeBtn) els.takeBtn.hidden = !studio.on;
     if (els.cutBtn) els.cutBtn.hidden = !studio.on;
+    document.body.classList.toggle("studio-open", studio.on);
+    if (studio.on) startMonitor(); else stopMonitor();
+  }
+
+  /* The OBS-style monitors: a hidden receive-only connection (in its own
+     iframe — one Daily instance per page) that subscribes ONLY to the
+     engine's camera (PROGRAM) and screen (PREVIEW) and shows them side by side. */
+  var monitorStarted = false;
+
+  function startMonitor() {
+    var frame = document.getElementById("monitor-frame");
+    if (!frame || monitorStarted) return;
+    monitorStarted = true;
+    fetch("/api/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        role: "monitor",
+        room: joinedRoom,
+        hostKey: els.hostKey ? els.hostKey.value : "",
+      }),
+    })
+      .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, d: d }; }); })
+      .then(function (r) {
+        if (!r.ok || !monitorStarted) return;
+        frame.onload = function () {
+          try {
+            frame.contentWindow.postMessage(
+              { t: "mfm-monitor-join", url: r.d.url, token: r.d.token },
+              window.location.origin
+            );
+          } catch (e) { /* fine */ }
+        };
+        frame.src = "/monitor.html?ts=" + Date.now();
+      })
+      .catch(function () { /* monitors optional — staging still works */ });
+  }
+
+  function stopMonitor() {
+    monitorStarted = false;
+    var frame = document.getElementById("monitor-frame");
+    if (frame) { frame.onload = null; frame.src = "about:blank"; }
   }
 
   if (els.studioToggle) {

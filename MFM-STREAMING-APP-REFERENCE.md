@@ -372,6 +372,20 @@ the broadcast ourselves** (hybrid): we paint every pixel; Daily keeps doing tran
 - E3 field test pending: studio + take, preview monitor, slates, sliders, 9:16 on a
   VERTICAL=1 runner.
 
+### Studio monitors v2 (July 30, evening — Dawn: "I want OBS")
+- Prebuilt-embedded preview wasn't it. Now: **Studio ON → an OBS-style monitor strip
+  appears in the console** — PREVIEW | PROGRAM side by side above the deck, real video.
+- How: `monitor.html` in an iframe (one Daily instance per page) joins as MONITOR via a
+  new `monitor` token role (HOST_KEY-guarded, `user_id mfm-monitor`, publishes nothing,
+  canReceive base:false + engine-only) and subscribes ONLY to the engine's camera
+  (program) + screen share (preview). Console fetches the token and postMessages it in;
+  People/mute-all filter MONITOR out. Ministers see one more inert tile while studio is on.
+- ⚠️ The VPS engine loads its page ONCE — after every deploy run `docker compose restart`
+  or new engine features silently don't exist. This bit us in the field.
+- Next asks from Dawn's OBS comparison (not yet built): saved SCENES (one-tap named
+  looks), image FLIERS as slates (her H&D flier — likely via /fliers/ images in the repo
+  + URL slate), fade-to-black. Candidate scope for the hardening/E4 chat.
+
 ### Engine build phases (new chats)
 | Chat | Scope | Status |
 |------|-------|--------|
