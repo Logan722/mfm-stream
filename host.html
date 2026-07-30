@@ -77,25 +77,21 @@
       <div class="console-main">
         <div class="stage" id="stage"></div>
 
-        <!-- Program monitor: preview / TAKE / program, like an OBS studio row -->
+        <!-- Studio row: visual preview / TAKE / program monitors, like OBS Studio Mode -->
         <div class="monitor" id="monitor">
-          <div class="mon-seg seg-preview" id="prev-seg" hidden>
+          <div class="mon-screen" id="prev-screen" hidden>
             <span class="pv-tag">PREVIEW</span>
-            <div class="mon-text">
-              <p class="pv-title" id="prev-title">Nothing staged</p>
-              <p class="pv-sub" id="prev-sub" hidden></p>
-            </div>
+            <div class="mock" id="prev-mock"></div>
           </div>
-          <button type="button" class="take-btn" id="take-btn" hidden>TAKE &#9654;</button>
-          <div class="mon-seg seg-program">
+          <div class="mon-mid">
+            <button type="button" class="take-btn" id="take-btn" hidden>TAKE &#9654;</button>
+            <button type="button" class="p-btn" id="prog-clear">Clear card</button>
+            <button type="button" class="bar-btn" id="studio-toggle">Studio: Off</button>
+          </div>
+          <div class="mon-screen" id="prog-screen">
             <span class="pv-tag" id="pv-tag">OFF AIR</span>
-            <div class="mon-text">
-              <p class="pv-title" id="pv-title">No card on stream</p>
-              <p class="pv-sub" id="pv-sub" hidden></p>
-            </div>
-            <button type="button" class="p-btn" id="prog-clear" hidden>Clear</button>
+            <div class="mock" id="prog-mock"></div>
           </div>
-          <button type="button" class="bar-btn" id="studio-toggle">Studio: Off</button>
         </div>
 
         <!-- Production deck -->

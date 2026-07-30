@@ -151,11 +151,14 @@ browser (laptop or phone). Two views of the same app:
 - **Production deck** along the bottom of the video: four side-by-side panels —
   Broadcast · Lower third · Prayer points · Scripture. "Deck" button collapses it for full video.
 - **Right sidebar = People only** (list, statuses, moderation, mute-all).
-- **Studio monitor row** (v3, after field feedback): OBS-style strip between video and
-  deck. **Studio mode ON** — deck buttons *stage* cards into a PREVIEW slot; **TAKE**
-  cuts the staged card to program. **Studio mode OFF** — buttons push straight to
-  program (instant). Toggle on the row, remembered per device; program slot shows
-  LIVE / OFF AIR tag + Clear. Deck button labels flip Show/Stage to match the mode.
+- **Studio row v4 — visual monitors (OBS Studio Mode pattern, per Dawn):** two 16:9
+  mock screens between video and deck — **PREVIEW | TAKE ▶ | PROGRAM**. Each draws the
+  scene composition: layout tiles (grid/speaker/split/PiP) with real participant names,
+  ★ featured person, and the overlay card rendered in place at proportion. **Scenes
+  stage everything** — card + layout + feature; TAKE cuts the whole scene. Studio OFF:
+  edits hit program (and the stream) instantly. Not live camera video (Prebuilt iframe
+  keeps tracks; true video panes need the custom-video phase) — the mocks show
+  composition, names, and card exactly.
   Exists because compositor overlays appear ONLY in the RTMP output — never in the room.
 - **Branding controls removed** (Dawn, July 2026): no name-labels toggle (labels
   hardcoded ON), no program-title overlay.
