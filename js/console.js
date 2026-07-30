@@ -825,7 +825,8 @@
       var stale = Date.now() - eng.lastSeen > 10000;
       var name = st && st.runner === "cloud" ? "Cloud engine" : "Engine";
       els.engStatus.textContent = st && !stale
-        ? name + " online · " + (st.spot ? "featured" : st.mode) + " · " + st.tiles + " tile" + (st.tiles === 1 ? "" : "s") + " · " + st.fps + " fps"
+        ? name + " online · " + (st.spot ? "featured" : st.mode) + " · " + st.tiles + " tile" + (st.tiles === 1 ? "" : "s") + " · " + st.fps + " fps · " +
+          (st.build ? "build " + st.build : "OLD CODE — restart the droplet")
         : "Engine online";
     }
     if (els.engAlert) {
@@ -1265,10 +1266,13 @@
       .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, d: d }; }); })
       .then(function (r) {
         if (!r.ok || !monitorStarted) return;
+        var vert = !!(eng.lastState && eng.lastState.vertical);
+        var mons = document.getElementById("monitors");
+        if (mons) mons.classList.toggle("has-vert", vert);
         frame.onload = function () {
           try {
             frame.contentWindow.postMessage(
-              { t: "mfm-monitor-join", url: r.d.url, token: r.d.token },
+              { t: "mfm-monitor-join", url: r.d.url, token: r.d.token, vertical: vert },
               window.location.origin
             );
           } catch (e) { /* fine */ }
@@ -1697,11 +1701,23 @@
   }
 
   function hideKind(kind) {
-    var s = activeScene();
-    if (s.card && s.card.kind === kind) {
-      s.card = null;
-      applyScene();
+    // HIDE is the one INSTANT action (Dawn): clears the card from PREVIEW
+    // and PROGRAM immediately — no TAKE needed. Show/Push still stage.
+    var changed = false;
+    if (scene.card && scene.card.kind === kind) { scene.card = null; changed = true; }
+    if (studio.on && studio.preview && studio.preview.card &&
+        studio.preview.card.kind === kind) {
+      studio.preview.card = null;
+      changed = true;
     }
+    if (!changed) return;
+    persistState();
+    if (engineOnline()) {
+      sendSceneCmd("scene", scene);
+      if (studio.on) sendSceneCmd("scene-preview", studio.preview);
+    }
+    if (bc.live && !bc.engineLocked) pushLayout();
+    renderScene();
   }
 
   /* ---------- Lower third ---------- */

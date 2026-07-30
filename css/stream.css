@@ -940,6 +940,7 @@ body.studio-open .console-main > .stage { display: none; }
 }
 
 body.studio-open .mon-controls { display: flex; }
+.monitors.has-vert .mon-controls { left: 39%; }
 
 .mon-controls .bar-btn {
   width: 100%;

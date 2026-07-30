@@ -47,6 +47,7 @@
 
   var W = 1920, H = 1080, FPS = 30;
   var FADE = 0.22; // card fade seconds
+  var BUILD = "jul30-n5"; // shown in the console Engine panel — stale-engine detector
 
   /* ---------- Royal Flame tokens ---------- */
   var C = {
@@ -484,6 +485,7 @@
           });
         } catch (e) { /* defaults still stream */ }
         startHeartbeat();
+        ensurePortraitShare();
       })
       .on("participant-joined", function (ev) { syncParticipant(ev.participant); })
       .on("participant-updated", function (ev) { syncParticipant(ev.participant); })
@@ -668,6 +670,16 @@
      Hosts/co-hosts can see it (canReceive allows screenVideo); ministers can't.
      Skipped while a Daily-locked stream is live — never risk the on-air path. */
   var previewShared = false;
+  var portraitShared = false;
+
+  function ensurePortraitShare() {
+    if (portraitShared || !VERTICAL || !call || !joined) return;
+    try {
+      var t = portraitCanvas.captureStream(12).getVideoTracks()[0];
+      call.startCustomTrack({ track: t, trackName: "portrait" });
+      portraitShared = true;
+    } catch (e) { /* older daily-js — the studio pane just stays empty */ }
+  }
 
   function ensurePreviewShare() {
     if (previewShared || !call || !joined || live) return;
@@ -698,6 +710,7 @@
       fps: fpsMeasured,
       gains: { media: gains.media, master: gains.master },
       runner: RUNNER ? "cloud" : "browser",
+      build: BUILD,
       ffmpeg: ffmpegState,
       ffmpegVert: ffmpegVertState,
       vertical: VERTICAL,
