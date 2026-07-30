@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Media</title></head>
+<body>
+<script crossorigin src="https://unpkg.com/@daily-co/daily-js"></script>
+<script>
+(function () {
+  "use strict";
+  /* Hidden media publisher: receives a File from the console, plays it,
+     and joins the room as MEDIA publishing the video+audio as its cam/mic.
+     No screen sharing involved — this frame owns the stream. */
+  var call = null, v = null, ac = null, gain = null, url = null;
+
+  function tell(state, detail) {
+    try { parent.postMessage({ t: "mfm-media-state", state: state, detail: detail || "" }, window.location.origin); }
+    catch (e) { /* fine */ }
+  }
+
+  function cleanup() {
+    if (call) { try { call.leave(); } catch (e) {} try { call.destroy(); } catch (e) {} call = null; }
+    if (v) { try { v.pause(); v.removeAttribute("src"); v.load(); } catch (e) {} v = null; }
+    if (url) { try { URL.revokeObjectURL(url); } catch (e) {} url = null; }
+    if (ac) { try { ac.close(); } catch (e) {} ac = null; }
+    gain = null;
+  }
+
+  window.addEventListener("message", function (ev) {
+    var d = ev.data;
+    if (!d || !d.t) return;
+
+    if (d.t === "mfm-media-play" && d.file && !call) {
+      var Daily = window.Daily || window.DailyIframe;
+      if (!Daily || !Daily.createCallObject) { tell("error", "video library failed to load"); return; }
+      v = document.createElement("video");
+      url = URL.createObjectURL(d.file);
+      v.src = url;
+      v.playsInline = true;
+      v.onended = function () { tell("ended"); cleanup(); };
+      v.play().then(function () {
+        var cap = v.captureStream ? v.captureStream() : (v.mozCaptureStream ? v.mozCaptureStream() : null);
+        var vt = cap && cap.getVideoTracks()[0];
+        if (!vt) { tell("error", "this browser can't capture the file — use Chrome or Edge"); cleanup(); return; }
+        var AC = window.AudioContext || window.webkitAudioContext;
+        ac = new AC();
+        var src = ac.createMediaElementSource(v);
+        gain = ac.createGain();
+        gain.gain.value = typeof d.volume === "number" ? d.volume : 0.9;
+        var dest = ac.createMediaStreamDestination();
+        src.connect(gain);
+        gain.connect(dest);
+        var tracks = [vt];
+        var at = dest.stream.getAudioTracks()[0];
+        if (at) tracks.push(at);
+        call = Daily.createCallObject({
+          subscribeToTracksAutomatically: false, // publish only — receive nothing
+          videoSource: vt,
+          audioSource: at || false,
+        });
+        call.on("left-meeting", function () { tell("ended"); });
+        call.join({ url: d.url, token: d.token })
+          .then(function () { tell("playing", d.file.name); })
+          .catch(function () { tell("error", "could not join the room"); cleanup(); });
+      }).catch(function () {
+        tell("error", "couldn't play that file — MP4 (H.264) works best");
+        cleanup();
+      });
+    } else if (d.t === "mfm-media-pause" && v) {
+      v.pause(); tell("paused");
+    } else if (d.t === "mfm-media-resume" && v) {
+      v.play(); tell("playing");
+    } else if (d.t === "mfm-media-volume" && gain) {
+      gain.gain.value = Math.max(0, Math.min(1.5, Number(d.value) || 0));
+    } else if (d.t === "mfm-media-stop") {
+      cleanup(); tell("stopped");
+    }
+  });
+})();
+</script>
+</body>
+</html>

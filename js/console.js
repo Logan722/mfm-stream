@@ -576,7 +576,8 @@
   }
 
   function isSystem(p) { // engine or the console's own monitor connection
-    return isEngine(p) || (!!p && !p.local && (p.user_id === "mfm-monitor" || p.user_name === "MONITOR"));
+    return isEngine(p) ||
+      (!!p && !p.local && (p.user_id === "mfm-monitor" || p.user_name === "MONITOR" || p.user_name === "MEDIA"));
   }
 
   function engineParticipant() {
@@ -922,6 +923,16 @@
       feat.classList.add("feature");
       if (featured) feat.classList.add("active");
       row.appendChild(feat);
+
+      // Your own mic/cam — reachable even in studio mode (the tray is hidden)
+      if (p.local) {
+        row.appendChild(actionBtn(p.audio ? "Mute me" : "Unmute me", false, function () {
+          callFrame.setLocalAudio(!p.audio);
+        }));
+        row.appendChild(actionBtn(p.video ? "My cam off" : "My cam on", false, function () {
+          callFrame.setLocalVideo(!p.video);
+        }));
+      }
 
       // Moderation (not yourself; not other owner-token hosts)
       if (!p.local && !p.owner) {
@@ -1892,82 +1903,69 @@
 
   if (els.mdVol) {
     els.mdVol.addEventListener("input", function () {
-      if (mf.gain) mf.gain.gain.value = mdVolValue();
+      mediaPost({ t: "mfm-media-volume", value: mdVolValue() });
     });
   }
 
+  /* The file plays in a hidden helper frame that joins the room as MEDIA and
+     publishes the video directly — its own frame owns the stream, so there is
+     no screen-share picker and nothing of yours is shared. */
+  function mediaPost(msg) {
+    var f = document.getElementById("media-frame");
+    if (f && f.contentWindow) {
+      try { f.contentWindow.postMessage(msg, window.location.origin); } catch (e) { /* fine */ }
+    }
+  }
+
+  window.addEventListener("message", function (ev) {
+    var d = ev.data;
+    if (!d || d.t !== "mfm-media-state") return;
+    if (d.state === "playing") {
+      mf.active = true; mf.paused = false;
+      mdNote("Playing " + (d.detail ? "“" + d.detail + "” " : "") + "for the room and the stream. Slider = live volume.");
+    } else if (d.state === "paused") {
+      mf.paused = true; mdNote("Paused — the stream holds the last frame.");
+    } else if (d.state === "ended" || d.state === "stopped") {
+      mf.active = false; mf.paused = false;
+      var fr = document.getElementById("media-frame");
+      if (fr) fr.src = "about:blank";
+      mdNote(d.state === "ended" ? "File finished." : "Stopped.");
+    } else if (d.state === "error") {
+      mf.active = false; mf.paused = false;
+      mdNote("Could not play the file: " + d.detail);
+    }
+    mdButtons();
+  });
+
   function startFilePlayback(file) {
     if (!callFrame) return;
-    // One media source at a time
     if (md.sessionId) { try { callFrame.stopRemoteMediaPlayer(md.sessionId); } catch (e) { /* fine */ } }
     stopFilePlayback(true);
-
-    var v = document.createElement("video");
-    mf.url = URL.createObjectURL(file);
-    mf.el = v;
     mf.name = file.name;
-    v.src = mf.url;
-    v.playsInline = true;
-
     mdNote("Loading “" + file.name + "”…");
-
-    v.play().then(function () {
-      var cap = v.captureStream ? v.captureStream()
-        : (v.mozCaptureStream ? v.mozCaptureStream() : null);
-      var videoTrack = cap && cap.getVideoTracks()[0];
-      if (!videoTrack) {
-        stopFilePlayback(true);
-        mdNote("This browser can't capture the file — use Chrome or Edge on a computer.");
-        return;
-      }
-
-      // Audio: file → gain (the slider) → published track + your speakers.
-      var AC = window.AudioContext || window.webkitAudioContext;
-      mf.ac = new AC();
-      var src = mf.ac.createMediaElementSource(v);
-      mf.gain = mf.ac.createGain();
-      mf.gain.gain.value = mdVolValue();
-      var dest = mf.ac.createMediaStreamDestination();
-      src.connect(mf.gain);
-      mf.gain.connect(dest);               // → the room + the stream
-      mf.gain.connect(mf.ac.destination);  // → your speakers (you hear what they hear)
-
-      var tracks = [videoTrack];
-      var at = dest.stream.getAudioTracks()[0];
-      if (at) tracks.push(at);
-
-      try {
-        callFrame.startScreenShare({ mediaStream: new MediaStream(tracks) });
-      } catch (err) {
-        stopFilePlayback(true);
-        mdNote("Could not share the file: " + (err.message || err));
-        return;
-      }
-
-      mf.active = true;
-      mf.paused = false;
-      v.onended = function () { stopFilePlayback(); mdNote("File finished."); };
-      mdNote("Playing “" + mf.name + "” for the room and the stream. Slider = live volume. (Uses your Share slot.)");
-      mdButtons();
-    }).catch(function () {
-      stopFilePlayback(true);
-      mdNote("Couldn't play that file — MP4 (H.264) works best.");
-    });
+    var fr = document.getElementById("media-frame");
+    if (!fr) { mdNote("Media frame missing — refresh the console."); return; }
+    fetch("/api/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role: "participant", name: "MEDIA", room: joinedRoom }),
+    })
+      .then(function (res) { return res.json().then(function (dd) { return { ok: res.ok, d: dd }; }); })
+      .then(function (r) {
+        if (!r.ok) { mdNote("Could not prepare the media player: " + (r.d && r.d.error || "try again")); return; }
+        fr.onload = function () {
+          mediaPost({ t: "mfm-media-play", url: r.d.url, token: r.d.token, file: file, volume: mdVolValue() });
+        };
+        fr.src = "/media.html?ts=" + Date.now();
+      })
+      .catch(function () { mdNote("Could not reach the token service."); });
   }
 
   function stopFilePlayback(silent) {
     var was = mf.active;
     mf.active = false;
     mf.paused = false;
-    if (was && callFrame) { try { callFrame.stopScreenShare(); } catch (e) { /* fine */ } }
-    if (mf.el) {
-      mf.el.onended = null;
-      try { mf.el.pause(); mf.el.removeAttribute("src"); mf.el.load(); } catch (e) { /* fine */ }
-      mf.el = null;
-    }
-    if (mf.url) { try { URL.revokeObjectURL(mf.url); } catch (e) { /* fine */ } mf.url = null; }
-    if (mf.ac) { try { mf.ac.close(); } catch (e) { /* fine */ } mf.ac = null; }
-    mf.gain = null;
+    mediaPost({ t: "mfm-media-stop" });
     if (!silent && was) mdNote("Stopped.");
     mdButtons();
   }
@@ -1976,16 +1974,7 @@
   if (els.mdPause) {
     els.mdPause.addEventListener("click", function () {
       if (mf.active) {
-        if (mf.paused) {
-          mf.el && mf.el.play();
-          mf.paused = false;
-          mdNote("Playing.");
-        } else {
-          mf.el && mf.el.pause();
-          mf.paused = true;
-          mdNote("Paused — the stream holds the last frame.");
-        }
-        mdButtons();
+        mediaPost({ t: mf.paused ? "mfm-media-resume" : "mfm-media-pause" });
         return;
       }
       if (!callFrame || !md.sessionId) return;

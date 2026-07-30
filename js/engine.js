@@ -47,7 +47,7 @@
 
   var W = 1920, H = 1080, FPS = 30;
   var FADE = 0.22; // card fade seconds
-  var BUILD = "jul30-n6"; // shown in the console Engine panel — stale-engine detector
+  var BUILD = "jul30-n7"; // shown in the console Engine panel — stale-engine detector
 
   /* ---------- Royal Flame tokens ---------- */
   var C = {
@@ -272,7 +272,8 @@
         videoEl: null, videoTrackId: null, screenEl: null, screenTrackId: null,
       };
     }
-    rec.kind = p.participantType === "remote-media-player" ? "media" : "person";
+    rec.kind = (p.participantType === "remote-media-player" || p.user_name === "MEDIA")
+      ? "media" : "person";
     rec.name = rec.kind === "media" ? "Video" : (p.user_name || "Guest").slice(0, 40);
 
     syncVideoEl(rec, "videoEl", "videoTrackId", playableTrack(p, "video"));
