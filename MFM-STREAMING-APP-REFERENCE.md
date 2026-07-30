@@ -265,6 +265,51 @@ Rotate the PAT after each session.
 
 ---
 
+## ★ DECISION (July 30, 2026): self-composited broadcast — the "Program Engine"
+
+Daily's new compositor (mandatory once legacy EOLs this summer) proved unfit live:
+banner overlay unsupported, mid-stream layout updates not applying (warnings with
+actionTraceId per action), YouTube reporting underfed video. Dawn chose to **composite
+the broadcast ourselves** (hybrid): we paint every pixel; Daily keeps doing transport.
+
+### Architecture
+- **Room: unchanged.** Participants on Prebuilt; console People board as-is.
+- **`program.html` — the Program Engine**: joins the room via daily-js call object
+  (participant named `PROGRAM`), receives all tracks, composites the broadcast on a
+  1920×1080 canvas: layouts (grid/speaker/split/PiP/featured), Royal Flame overlays
+  with REAL Fraunces/Inter Tight, boxed gold cards, multiple simultaneous layers,
+  animated transitions, slates. Audio mixed via WebAudio → **per-source volume**
+  (media clips, even per-participant gain). Publishes canvas.captureStream() + mixed
+  audio as its cam/mic.
+- **Delivery:** Daily live streaming with the bulletproof `single-participant` preset
+  locked to PROGRAM's session id — set once at start, never updated mid-stream, no
+  custom compositions. Sidesteps every new-pipeline bug. Multistream (YT×2/FB) and the
+  9:16 second instance (portrait engine canvas later) unchanged.
+- **Control:** console buttons send `sendAppMessage` commands to the engine
+  (layout/cards/spotlight/media volume) — instant, all switching happens in-canvas.
+  Console needs an Engine status indicator + Go Live path that targets PROGRAM.
+- **Engine token:** extend `token.js` with an `engine` role (guard with HOST_KEY or a
+  dedicated ENGINE_KEY env var); engine page takes room + key via its join form/URL.
+- **Hosting (Dawn's choice): CLOUD from day one** — a small VPS (~4 vCPU, ~$25/mo class,
+  e.g. Hetzner/DO) running headless Chromium (Playwright) with program.html open;
+  Dockerfile + exact setup steps to be provided in-repo. Build/test path: the engine
+  page works in ANY browser tab first; cloud is the deployment target once proven.
+  (Note: Cowork cloud sandboxes cannot join Daily calls — WSS blocked — so engine
+  testing happens in Dawn's browser until the VPS exists.)
+- True OBS studio mode (real video preview/program) becomes buildable once the engine
+  holds the tracks; boxed-card design returns; one-card limit dies.
+
+### Engine build phases (new chats)
+| Chat | Scope | Status |
+|------|-------|--------|
+| E1 | program.html engine: join, canvas compositor (grid/speaker/featured), Royal Flame cards (l3/prayer/scripture), audio mix, app-message control, console Engine panel + PROGRAM-locked Go Live | ⬜ |
+| E2 | Cloud runner: Dockerfile (Playwright+Chromium), VPS setup steps, watchdog/auto-restart, engine health in console | ⬜ |
+| E3 | Studio mode v2 (real-video preview/program in console), 9:16 portrait canvas, media volume slider, transitions/slates, dry runs | ⬜ |
+
+Until E1 lands: current platform stays usable — room/moderation/media fully work;
+broadcast works with start-time composition (labels); cards/mid-stream changes are
+unreliable on Daily's new pipeline. `/api/diag` stays for reference (remove in E3).
+
 ## Phased roadmap
 
 1. **Foundation room** — join link + multi-person interactive room. *Prove the core.* ✅
