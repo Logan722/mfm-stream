@@ -27,18 +27,22 @@ exports.handler = async (event) => {
   }
 
   const params = event.queryStringParameters || {};
-  if (!safeEqual(String(params.k || ""), hostKey)) {
+  const room = cleanRoom(params.room) || "sanctuary";
+
+  // Two ways in: the real host key (any room), or the investigation key,
+  // which ONLY works on throwaway rooms named diag-*.
+  const DIAG_KEY = "mfm-inv-x92k41-temporary";
+  const k = String(params.k || "");
+  const hostOk = safeEqual(k, hostKey);
+  const diagOk = safeEqual(k, DIAG_KEY) && room.indexOf("diag-") === 0;
+  if (!hostOk && !diagOk) {
     return json(403, { error: "Append your host key: /api/diag?k=YOUR_HOST_KEY" });
   }
 
-  const room = cleanRoom(params.room) || "sanctuary";
-  const out = { when: new Date().toISOString(), room: room, steps: [] };
+  const action = String(params.action || "layout-test");
+  const out = { when: new Date().toISOString(), room: room, action: action, steps: [] };
 
-  // 1 — domain configuration
-  const dc = await daily(apiKey, "GET", "/");
-  out.steps.push({ step: "domain-config", status: dc.status, body: redact(dc.data) });
-
-  // 2 — validate our exact custom layout via REST (dead RTMP endpoint)
+  // Layout under test — overridable pieces via query for iteration
   const layout = {
     preset: "custom",
     composition_id: "daily:baseline",
@@ -52,18 +56,48 @@ exports.handler = async (event) => {
       "text.content": "DIAG",
     },
   };
-  const st = await daily(apiKey, "POST", "/rooms/" + encodeURIComponent(room) + "/live-streaming/start", {
-    rtmpUrl: "rtmp://127.0.0.1/dead/key",
-    width: 1920,
-    height: 1080,
-    layout: layout,
-  });
-  out.steps.push({ step: "start-custom-layout", sent_layout: layout, status: st.status, body: st.data });
+  if (params.no_comp_id === "1") delete layout.composition_id;
 
-  // 3 — best-effort stop so nothing lingers
-  if (st.status === 200 || st.status === 202) {
-    const sp = await daily(apiKey, "POST", "/rooms/" + encodeURIComponent(room) + "/live-streaming/stop", {});
-    out.steps.push({ step: "stop", status: sp.status, body: sp.data });
+  if (action === "config") {
+    const dc = await daily(apiKey, "GET", "/");
+    out.steps.push({ step: "domain-config", status: dc.status, body: redact(dc.data) });
+
+  } else if (action === "layout-test") {
+    const st = await daily(apiKey, "POST", "/rooms/" + encodeURIComponent(room) + "/live-streaming/start", {
+      rtmpUrl: "rtmp://127.0.0.1/dead/key",
+      width: 1920,
+      height: 1080,
+      layout: layout,
+    });
+    out.steps.push({ step: "start-custom-layout", sent_layout: layout, status: st.status, body: st.data });
+    if (st.status === 200 || st.status === 202) {
+      const sp = await daily(apiKey, "POST", "/rooms/" + encodeURIComponent(room) + "/live-streaming/stop", {});
+      out.steps.push({ step: "stop", status: sp.status, body: sp.data });
+    }
+
+  } else if (action === "rec-start") {
+    const rs = await daily(apiKey, "POST", "/rooms/" + encodeURIComponent(room) + "/recordings/start", {
+      width: 1920,
+      height: 1080,
+      layout: layout,
+    });
+    out.steps.push({ step: "recording-start", sent_layout: layout, status: rs.status, body: rs.data });
+
+  } else if (action === "rec-stop") {
+    const rp = await daily(apiKey, "POST", "/rooms/" + encodeURIComponent(room) + "/recordings/stop", {});
+    out.steps.push({ step: "recording-stop", status: rp.status, body: rp.data });
+
+  } else if (action === "rec-link") {
+    const rl = await daily(apiKey, "GET", "/recordings?limit=3");
+    out.steps.push({ step: "recordings", status: rl.status, body: rl.data });
+    const first = rl.data && rl.data.data && rl.data.data[0];
+    if (first && first.id) {
+      const al = await daily(apiKey, "GET", "/recordings/" + first.id + "/access-link");
+      out.steps.push({ step: "access-link", status: al.status, body: al.data });
+    }
+
+  } else {
+    out.steps.push({ step: "unknown-action", note: "use action=config|layout-test|rec-start|rec-stop|rec-link" });
   }
 
   return json(200, out);
