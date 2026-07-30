@@ -789,7 +789,8 @@ body.deck-hidden .deck { display: none; }
   padding: 3px 0;
 }
 
-.board-toggle { display: none; }
+.board-toggle { display: inline-block; }
+body.board-hidden .board { display: none; }
 
 /* ============================================================
    Program Engine (program.html) + console Engine panel

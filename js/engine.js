@@ -47,7 +47,7 @@
 
   var W = 1920, H = 1080, FPS = 30;
   var FADE = 0.22; // card fade seconds
-  var BUILD = "jul30-n9"; // shown in the console Engine panel — stale-engine detector
+  var BUILD = "jul30-n10"; // shown in the console Engine panel — stale-engine detector
 
   /* ---------- Royal Flame tokens ---------- */
   var C = {
@@ -93,7 +93,7 @@
 
   // Preview canvas (studio monitor — published as PROGRAM's screen share)
   var previewCanvas = document.createElement("canvas");
-  previewCanvas.width = W;
+  previewCanvas.width = qs.get("vertical") === "1" ? 2528 : W; // room for the 9:16 strip
   previewCanvas.height = H;
   var previewCtx = previewCanvas.getContext("2d", { alpha: false });
 
@@ -487,7 +487,6 @@
           });
         } catch (e) { /* defaults still stream */ }
         startHeartbeat();
-        ensurePortraitShare();
       })
       .on("participant-joined", function (ev) { syncParticipant(ev.participant); })
       .on("participant-updated", function (ev) { syncParticipant(ev.participant); })
@@ -737,7 +736,7 @@
       ffmpeg: ffmpegState,
       ffmpegVert: ffmpegVertState,
       vertical: VERTICAL,
-      portraitShare: !VERTICAL ? "off" : (portraitShared ? "ok" : (portraitErr || "pending")),
+      portraitShare: VERTICAL ? "ok" : "off", // rides the preview share now
       studio: studio.on,
       slate: scene.slate ? "on" : null,
       preview: studio.on && scenePreview ? {
@@ -854,6 +853,12 @@
     ctx.fillStyle = "rgba(212, 168, 83, 0.92)";
     ctx.textBaseline = "top";
     ctx.fillText("PREVIEW", 24, 20);
+    // The 9:16 rides along in the same feed — the monitor crops it out.
+    if (VERTICAL && portraitCtx) {
+      ctx.fillStyle = "#0a101c";
+      ctx.fillRect(1920, 0, 608, 1080);
+      ctx.drawImage(portraitCanvas, 1920, 0, 608, 1080);
+    }
     ctx = oc; scene = os; cardDraw = ocd; curCardBox = ob;
   }
 

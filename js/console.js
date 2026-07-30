@@ -1090,7 +1090,8 @@
   /* ---------- Drawers ---------- */
   if (els.boardToggle && els.board) {
     els.boardToggle.addEventListener("click", function () {
-      document.body.classList.toggle("board-open");
+      if (window.innerWidth > 900) document.body.classList.toggle("board-hidden");
+      else document.body.classList.toggle("board-open");
     });
   }
 
