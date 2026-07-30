@@ -340,12 +340,20 @@
       })
       .on("nonfatal-error", function (ev) {
         // Surface warnings Daily raises without killing the call (e.g. a
-        // rejected layout) — these were previously invisible.
+        // rejected layout) — with everything Daily sends, not just a type.
+        var detail = "";
+        try {
+          detail = JSON.stringify({
+            type: ev && ev.type,
+            msg: (ev && ev.errorMsg) || undefined,
+            details: (ev && ev.details) || undefined,
+          }).slice(0, 280);
+        } catch (e) { detail = String(ev && ev.type); }
         var text = (ev && (ev.type + " " + (ev.errorMsg || ""))) || "";
         if (/media-player/i.test(text)) {
-          mdNote("Media error: " + ((ev && ev.errorMsg) || ev.type));
+          mdNote("Media: " + detail);
         } else if (/stream|layout|composition/i.test(text)) {
-          panelError("Daily warning: " + ((ev && ev.errorMsg) || ev.type));
+          panelError("Daily warning: " + detail);
         }
       })
       .on("remote-media-player-started", function (ev) {
