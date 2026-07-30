@@ -419,6 +419,24 @@ the broadcast ourselves** (hybrid): we paint every pixel; Daily keeps doing tran
   monitor subscription — test carefully), PROGRAM presence hiding, master
   compressor/limiter, saved scenes, image fliers, fade-to-black.
 
+### NEXT SESSION — top of queue (July 30, end of day)
+1. **Card style controls, modeled on Dawn's OBS "Lower Thirds" plugin screenshot**
+   (analyzed): text alignment L/C/R, font size, line spacing, font choice, BOLD toggles,
+   per-line colors (title #F2F2F2, subtitle #8A8A8A), accent color (#D54141), background
+   color/opacity, corner radius, scale. Apply to ALL card kinds (l3/prayer/scripture) —
+   one styling system + the existing 6-position grid. Console controls in the merged
+   lower-third panel; style travels in the scene like everything else.
+2. **BUG: studio 9:16 pane shows "waiting for portrait feed" while engine build jul30-n7
+   reports vertical** — the portrait CUSTOM TRACK (engine `startCustomTrack` trackName
+   "portrait" → monitor `setSubscribedTracks {custom:true}`) is the one untested API in
+   the chain. Debug with droplet `docker compose logs` (look for page console.error) +
+   browser console on monitor.html. Fallbacks if custom tracks won't fly: subscribe shape
+   `{custom:{portrait:true}}`, or draw the 9:16 inside the PREVIEW share as an inset.
+3. **Engine at 9 fps** on the wide display (3000×1920 + preview + portrait on 4 vCPU) —
+   profile; likely needs the droplet resized (8 vCPU or CPU-Optimized) or portrait/preview
+   render rates lowered. Program fps must stay ~25-30.
+4. Then: saved scenes, image fliers, fade-to-black, full live test (DRY-RUN-CHECKLIST).
+
 ### Engine build phases (new chats)
 | Chat | Scope | Status |
 |------|-------|--------|
