@@ -75,16 +75,16 @@
 
     <div class="console-body">
       <div class="console-main">
-        <div class="stage" id="stage">
-          <!-- On-screen preview of what the broadcast shows -->
-          <div class="preview-layer" aria-hidden="true">
-            <div class="pv-card" id="pv-card" hidden>
-              <span class="pv-tag" id="pv-tag">PREVIEW</span>
-              <p class="pv-title" id="pv-title"></p>
-              <p class="pv-sub" id="pv-sub"></p>
-            </div>
-            <p class="pv-program" id="pv-program" hidden></p>
+        <div class="stage" id="stage"></div>
+
+        <!-- Program monitor: what the broadcast is showing (never covers the video) -->
+        <div class="monitor" id="monitor" hidden>
+          <span class="pv-tag" id="pv-tag">PREVIEW</span>
+          <div class="mon-text">
+            <p class="pv-title" id="pv-title"></p>
+            <p class="pv-sub" id="pv-sub"></p>
           </div>
+          <span class="pv-program" id="pv-program" hidden></span>
         </div>
 
         <!-- Production deck -->
@@ -92,6 +92,16 @@
 
           <section class="deck-panel">
             <p class="b-row-label">Broadcast &mdash; 16:9</p>
+            <button type="button" class="primary fire b-golive" id="go-live">Go Live</button>
+            <p class="error" id="bc-error" role="alert" hidden></p>
+            <p class="b-row-label">Layout on stream</p>
+            <div class="b-modes" id="bc-modes">
+              <button type="button" class="p-btn mode-btn active" data-mode="grid">Grid</button>
+              <button type="button" class="p-btn mode-btn" data-mode="dominant">Speaker</button>
+              <button type="button" class="p-btn mode-btn" data-mode="split">Split</button>
+              <button type="button" class="p-btn mode-btn" data-mode="pip">PiP</button>
+            </div>
+            <p class="b-row-label">Destinations</p>
             <label class="b-check"><input type="checkbox" id="yt-on" checked> YouTube</label>
             <input type="password" id="yt-key" class="b-input" autocomplete="off"
                    placeholder="Stream key &mdash; YouTube Studio &rarr; Go live">
@@ -101,19 +111,11 @@
             <label class="b-check"><input type="checkbox" id="custom-on"> Custom RTMP</label>
             <input type="text" id="custom-url" class="b-input" autocomplete="off"
                    placeholder="rtmp://server/app/streamkey">
-            <p class="b-row-label">Layout on stream</p>
-            <div class="b-modes" id="bc-modes">
-              <button type="button" class="p-btn mode-btn active" data-mode="grid">Grid</button>
-              <button type="button" class="p-btn mode-btn" data-mode="dominant">Speaker</button>
-              <button type="button" class="p-btn mode-btn" data-mode="split">Split</button>
-              <button type="button" class="p-btn mode-btn" data-mode="pip">PiP</button>
-            </div>
+            <p class="b-row-label">Branding</p>
             <label class="b-check"><input type="checkbox" id="labels-on" checked> Name labels</label>
             <input type="text" id="title-text" class="b-input" maxlength="60"
                    placeholder="Program title (bottom-right)">
-            <button type="button" class="primary fire b-golive" id="go-live">Go Live</button>
-            <p class="error" id="bc-error" role="alert" hidden></p>
-            <p class="b-hint">Keys stay on this device only. Overlays appear on the broadcast &mdash; the preview on your video shows what viewers get.</p>
+            <p class="b-hint">Keys stay on this device only. Overlays appear on the broadcast; the monitor bar below the video shows what viewers see.</p>
           </section>
 
           <section class="deck-panel">

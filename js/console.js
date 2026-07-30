@@ -52,8 +52,8 @@
     titleText: document.getElementById("title-text"),
     goLiveBtn: document.getElementById("go-live"),
     bcError: document.getElementById("bc-error"),
-    // Preview layer
-    pvCard: document.getElementById("pv-card"),
+    // Program monitor
+    monitor: document.getElementById("monitor"),
     pvTag: document.getElementById("pv-tag"),
     pvTitle: document.getElementById("pv-title"),
     pvSub: document.getElementById("pv-sub"),
@@ -234,7 +234,10 @@
     });
 
     callFrame
-      .on("joined-meeting", queueRender)
+      .on("joined-meeting", function () {
+        acquireWakeLock();
+        queueRender();
+      })
       .on("participant-joined", queueRender)
       .on("participant-updated", queueRender)
       .on("participant-left", function (ev) {
@@ -268,6 +271,7 @@
 
   function endCall() {
     onLiveStopped(); // clears LIVE UI + timer if we were streaming
+    releaseWakeLock();
     if (callFrame) {
       try { callFrame.destroy(); } catch (e) { /* already gone */ }
       callFrame = null;
@@ -690,9 +694,9 @@
   }
 
   function onLiveStarted() {
+    if (!bc.live) bc.startedAt = Date.now(); // don't reset the clock on repeat events
     bc.live = true;
     bc.starting = false;
-    bc.startedAt = Date.now();
     if (els.goLiveBtn) {
       els.goLiveBtn.disabled = false;
       els.goLiveBtn.textContent = "End broadcast";
@@ -778,26 +782,33 @@
     if (bc.live) pushLayout();
   }
 
-  /* The on-screen preview IS the status: it mirrors exactly what the
-     broadcast composition is showing (or will show when you go live). */
+  /* The monitor bar IS the status: it mirrors exactly what the broadcast
+     composition is showing (or will show when you go live). It sits between
+     the video and the deck so it never covers anyone on screen. */
   function updateOvStatus() {
-    if (els.pvCard) {
+    var title = els.titleText ? els.titleText.value.trim().slice(0, 60) : "";
+
+    if (els.monitor) {
+      els.monitor.hidden = !ov.banner && !title;
+      els.pvTag.textContent = bc.live ? "LIVE" : "PREVIEW";
+      els.pvTag.className = "pv-tag" + (bc.live ? " is-live" : "");
+
       if (ov.banner) {
-        els.pvCard.hidden = false;
         els.pvTitle.textContent = ov.banner.title;
         els.pvSub.textContent = ov.banner.subtitle || "";
         els.pvSub.hidden = !ov.banner.subtitle;
-        els.pvTag.textContent = bc.live ? "LIVE" : "PREVIEW";
-        els.pvTag.className = "pv-tag" + (bc.live ? " is-live" : "");
       } else {
-        els.pvCard.hidden = true;
+        els.pvTitle.textContent = "No card on stream";
+        els.pvSub.textContent = "";
+        els.pvSub.hidden = true;
+      }
+
+      if (els.pvProgram) {
+        els.pvProgram.textContent = title;
+        els.pvProgram.hidden = !title;
       }
     }
-    if (els.pvProgram) {
-      var t = els.titleText ? els.titleText.value.trim().slice(0, 60) : "";
-      els.pvProgram.textContent = t;
-      els.pvProgram.hidden = !t;
-    }
+
     if (els.l3Show) {
       els.l3Show.textContent = (ov.banner && ov.banner.kind === "l3") ? "On ✓ (update)" : "Show";
     }
@@ -861,6 +872,44 @@
      Scripture (Phase 5) — KJV via bible-api.com (public domain)
      Pushes into the same card slot as lower thirds & prayer points.
      ============================================================ */
+
+  /* ============================================================
+     Hardening touches
+     ============================================================ */
+
+  /* Keep the host's screen awake during a call — a sleeping laptop
+     kills the room and the broadcast. */
+  var wakeLock = null;
+
+  function acquireWakeLock() {
+    if (!navigator.wakeLock || !navigator.wakeLock.request) return;
+    navigator.wakeLock.request("screen")
+      .then(function (wl) { wakeLock = wl; })
+      .catch(function () { /* battery saver etc. — non-fatal */ });
+  }
+
+  function releaseWakeLock() {
+    if (wakeLock) {
+      try { wakeLock.release(); } catch (e) { /* fine */ }
+      wakeLock = null;
+    }
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    // Wake locks drop when the tab is hidden; re-acquire on return
+    if (document.visibilityState === "visible" &&
+        document.body.classList.contains("in-call")) {
+      acquireWakeLock();
+    }
+  });
+
+  /* Don't let the host close the tab mid-broadcast by accident. */
+  window.addEventListener("beforeunload", function (e) {
+    if (bc.live) {
+      e.preventDefault();
+      e.returnValue = "";
+    }
+  });
 
   var scCache = {}; // reference -> { reference, text }
 

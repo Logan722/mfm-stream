@@ -151,10 +151,14 @@ browser (laptop or phone). Two views of the same app:
 - **Production deck** along the bottom of the video: four side-by-side panels —
   Broadcast · Lower third · Prayer points · Scripture. "Deck" button collapses it for full video.
 - **Right sidebar = People only** (list, statuses, moderation, mute-all).
-- **On-screen overlay preview:** the card + program title render over the host's video area
-  (pointer-through), tagged **PREVIEW** (queued, not live) or **LIVE** (on the broadcast).
-  This exists because compositor overlays appear ONLY in the RTMP output — never in the
-  room itself — and the host must see what viewers see without opening YouTube.
+- **Program monitor bar** (v2, after field feedback — the original over-video preview
+  covered the speaker): a slim strip between the video and the deck showing the current
+  card + program title, tagged **PREVIEW** (queued) or **LIVE** (on the broadcast).
+  Exists because compositor overlays appear ONLY in the RTMP output — never in the room.
+- **Broadcast panel order:** Go Live at the top, then layout, destinations, branding —
+  the critical control is never below the fold.
+- Hardening: screen wake lock while in a call (re-acquired on tab return); browser
+  confirm before closing the tab mid-broadcast; LIVE timer survives repeat events.
 - Mobile: deck stacks vertically (scrollable), People stays a slide-in drawer.
 
 ### Multistream
