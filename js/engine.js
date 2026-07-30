@@ -31,6 +31,18 @@
   var qs = new URLSearchParams(window.location.search);
   var DEMO = qs.get("demo") === "1";
 
+  /* Cloud-runner modes (E2):
+     ?capture=1  — fullscreen borderless canvas, exactly the broadcast frame,
+                   so FFmpeg can x11grab the window 1:1
+     ?monitor=1  — also play the mixed audio out of the system device, so
+                   FFmpeg can capture it from the Pulse null sink
+     ?runner=cloud — reports itself as the cloud engine; enables the FFmpeg
+                   bridge (window.__mfmRunner is exposed by runner.js) */
+  var CAPTURE = qs.get("capture") === "1";
+  var MONITOR = qs.get("monitor") === "1";
+  var RUNNER = qs.get("runner") === "cloud";
+  var ffmpegState = { running: false, startedAt: 0, detail: "" };
+
   var W = 1920, H = 1080, FPS = 30;
   var FADE = 0.22; // card fade seconds
 
@@ -107,6 +119,9 @@
     AG.analyser.fftSize = 512;
     AG.master.connect(AG.dest);
     AG.master.connect(AG.analyser);
+    // Cloud runner: the mix also plays out of the system device so FFmpeg
+    // hears it (a Pulse null sink on the VPS — nobody's speakers).
+    if (MONITOR) AG.master.connect(AG.ctx.destination);
   }
 
   /* One source per (participant, track kind). key: sid + ":a" | ":sa" */
@@ -315,6 +330,7 @@
 
   function enterStage() {
     document.body.classList.add("in-call");
+    if (CAPTURE) document.body.classList.add("capture-mode");
     if (els.stageWrap) els.stageWrap.hidden = false;
     if (els.barRoom) els.barRoom.textContent = DEMO ? "demo" : joinedRoom;
     if (els.demoChip) els.demoChip.hidden = !DEMO;
@@ -489,7 +505,7 @@
   }
 
   function syncLiveChip() {
-    if (els.liveChip) els.liveChip.hidden = !live;
+    if (els.liveChip) els.liveChip.hidden = !(live || ffmpegState.running);
   }
 
   /* ---------- Commands from the console ---------- */
@@ -508,12 +524,33 @@
       if (/^[tb][lcr]$/.test(d.scene.cardPos || "")) scene.cardPos = d.scene.cardPos;
     } else if (d.cmd === "gain") {
       setGain(d.source, d.value);
+    } else if (d.cmd === "rtmp") {
+      // Cloud runner only: start/stop the VPS-side FFmpeg push. The bridge
+      // function is exposed by runner.js; in a normal browser this is a no-op.
+      if (RUNNER && typeof window.__mfmRunner === "function") {
+        try {
+          window.__mfmRunner(JSON.stringify({ action: d.action, urls: d.urls || [] }));
+        } catch (e) { /* runner gone — watchdog will notice */ }
+      }
     } else if (d.cmd === "ping") {
       sendState(ev.fromId);
       return;
     }
     sendStateToOwners();
   }
+
+  /* runner.js pushes FFmpeg state changes here (start/exit). */
+  window.__mfmRunnerEvent = function (ev) {
+    if (ev && ev.ffmpeg) {
+      ffmpegState = {
+        running: !!ev.ffmpeg.running,
+        startedAt: Number(ev.ffmpeg.startedAt) || 0,
+        detail: String(ev.ffmpeg.detail || "").slice(0, 200),
+      };
+      syncLiveChip();
+      sendStateToOwners();
+    }
+  };
 
   function normalizeCard(card) {
     if (!card || !card.title) return null;
@@ -537,6 +574,8 @@
       tiles: visibleTiles().length,
       fps: fpsMeasured,
       gains: { media: gains.media, master: gains.master },
+      runner: RUNNER ? "cloud" : "browser",
+      ffmpeg: ffmpegState,
     };
   }
 
@@ -1051,6 +1090,13 @@
     var now = performance.now();
     var dt = Math.min(0.25, (now - lastTick) / 1000);
     lastTick = now;
+
+    // Liveness beacon for the cloud watchdog: a counter that must keep
+    // moving, plus whether we're actually in the room.
+    window.__MFM = {
+      alive: (window.__MFM ? window.__MFM.alive : 0) + 1,
+      joined: joined || DEMO,
+    };
 
     if (DEMO) stepDemo(dt);
 

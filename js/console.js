@@ -132,6 +132,10 @@
   var bc = { live: false, starting: false, startedAt: 0, timerId: null, confirmingEnd: null,
              engineLocked: null }; // session_id the live stream is locked to (engine mode)
   var vt = { live: false, starting: false, startedAt: 0, timerId: null, confirmingEnd: null };
+  // Cloud stream (E2): FFmpeg on the VPS pushes RTMP directly — no Daily
+  // streaming involved. Driven by engine heartbeats, controlled by app-message.
+  var cs = { running: false, starting: false, startedAt: 0, timerId: null,
+             confirmingEnd: null, startTimeout: null };
 
   /* Every scene edit is instant: persist, hand it to the engine (or the
      legacy stream if the engine is offline), mirror on the video. */
@@ -384,6 +388,7 @@
         if (d && d.t === "mfm-engine" && d.state) {
           eng.lastState = d.state;
           eng.lastSeen = Date.now();
+          syncCloudStream(d.state);
           updateEnginePanel();
         }
       })
@@ -474,6 +479,11 @@
     onLiveStopped();
     vertStopped();
     stopFilePlayback(true);
+    // The VPS stream survives the console leaving; just clear local state.
+    cs.running = false;
+    cs.starting = false;
+    if (cs.timerId) { clearInterval(cs.timerId); cs.timerId = null; }
+    if (cs.startTimeout) { clearTimeout(cs.startTimeout); cs.startTimeout = null; }
     eng.lastState = null;
     eng.alert = "";
     releaseWakeLock();
@@ -542,20 +552,136 @@
     sendEngineScene();
   }
 
+  /* ---------- Cloud stream (VPS FFmpeg) ---------- */
+  function cloudCapable() {
+    return engineOnline() && eng.lastState && eng.lastState.runner === "cloud" &&
+      (Date.now() - eng.lastSeen) < 12000;
+  }
+
+  function sendRtmp(action, urls) {
+    var p = engineParticipant();
+    if (!p || !callFrame) return;
+    try {
+      callFrame.sendAppMessage(
+        { t: "mfm-cmd", cmd: "rtmp", action: action, urls: urls || [] },
+        p.session_id
+      );
+    } catch (e) { panelError("Could not reach the cloud runner — is the engine still online?"); }
+  }
+
+  function startCloudStream(eps) {
+    cs.starting = true;
+    if (els.goLiveBtn) {
+      els.goLiveBtn.disabled = true;
+      els.goLiveBtn.textContent = "Starting cloud stream…";
+    }
+    sendEngineScene();
+    sendRtmp("start", eps);
+    if (cs.startTimeout) clearTimeout(cs.startTimeout);
+    cs.startTimeout = setTimeout(function () {
+      if (cs.starting && !cs.running) {
+        cs.starting = false;
+        if (els.goLiveBtn) {
+          els.goLiveBtn.disabled = false;
+          els.goLiveBtn.textContent = "Go Live";
+        }
+        panelError("The cloud runner didn't confirm the stream in time — check the VPS (docker compose logs) and try again.");
+      }
+    }, 15000);
+  }
+
+  function requestCloudEnd() {
+    if (cs.confirmingEnd) {
+      clearTimeout(cs.confirmingEnd);
+      cs.confirmingEnd = null;
+      sendRtmp("stop");
+      if (els.goLiveBtn) {
+        els.goLiveBtn.textContent = "Ending…";
+        els.goLiveBtn.disabled = true;
+      }
+      setTimeout(function () { // safety: heartbeat should flip us back first
+        if (!cs.running && els.goLiveBtn && els.goLiveBtn.disabled) cloudStopped(null);
+      }, 8000);
+    } else {
+      cs.confirmingEnd = setTimeout(function () {
+        cs.confirmingEnd = null;
+        if (cs.running && els.goLiveBtn) els.goLiveBtn.textContent = "End broadcast";
+      }, 4000);
+      if (els.goLiveBtn) els.goLiveBtn.textContent = "Tap again to end";
+    }
+  }
+
+  function syncCloudStream(st) {
+    var f = st && st.ffmpeg;
+    var running = !!(f && f.running);
+    if (running && !cs.running) cloudStarted(f);
+    else if (!running && cs.running) cloudStopped(f);
+    else if (running && f.startedAt) cs.startedAt = f.startedAt;
+  }
+
+  function cloudStarted(f) {
+    cs.running = true;
+    cs.starting = false;
+    if (cs.startTimeout) { clearTimeout(cs.startTimeout); cs.startTimeout = null; }
+    cs.startedAt = (f && f.startedAt) || Date.now();
+    if (els.goLiveBtn) {
+      els.goLiveBtn.disabled = false;
+      els.goLiveBtn.textContent = "End broadcast";
+      els.goLiveBtn.classList.add("is-live");
+    }
+    if (els.liveChip) els.liveChip.hidden = false;
+    if (cs.timerId) clearInterval(cs.timerId);
+    cs.timerId = setInterval(tickCloud, 1000);
+    tickCloud();
+    panelError("");
+    updateEnginePanel();
+    renderScene();
+  }
+
+  function cloudStopped(f) {
+    var was = cs.running;
+    cs.running = false;
+    cs.starting = false;
+    if (cs.timerId) { clearInterval(cs.timerId); cs.timerId = null; }
+    if (cs.confirmingEnd) { clearTimeout(cs.confirmingEnd); cs.confirmingEnd = null; }
+    if (cs.startTimeout) { clearTimeout(cs.startTimeout); cs.startTimeout = null; }
+    if (!bc.live) {
+      if (els.liveChip) els.liveChip.hidden = true;
+      if (els.goLiveBtn) {
+        els.goLiveBtn.disabled = false;
+        els.goLiveBtn.textContent = "Go Live";
+        els.goLiveBtn.classList.remove("is-live");
+      }
+    }
+    if (was && f && f.detail && /exited/i.test(f.detail)) {
+      panelError("Cloud stream ended unexpectedly: " + f.detail + " — the runner retries automatically; watch the Engine panel.");
+    }
+    updateEnginePanel();
+    renderScene();
+  }
+
+  function tickCloud() {
+    if (els.liveTimer && cs.startedAt) els.liveTimer.textContent = fmtClock(cs.startedAt);
+  }
+
   function updateEnginePanel() {
     if (!els.engDot || !els.engStatus) return;
     var p = engineParticipant();
     var locked = bc.live && bc.engineLocked;
-    els.engDot.className = "eng-dot" + (locked && p ? " locked" : p ? " on" : "");
+    var onAir = (locked || cs.running) && p;
+    els.engDot.className = "eng-dot" + (onAir ? " locked" : p ? " on" : "");
     if (!p) {
       els.engStatus.textContent = "Engine offline — Go Live would use the Daily fallback";
+    } else if (cs.running) {
+      els.engStatus.textContent = "LIVE — streaming from the cloud runner (our own FFmpeg)";
     } else if (locked) {
       els.engStatus.textContent = "LIVE — stream locked to PROGRAM";
     } else {
       var st = eng.lastState;
       var stale = Date.now() - eng.lastSeen > 10000;
+      var name = st && st.runner === "cloud" ? "Cloud engine" : "Engine";
       els.engStatus.textContent = st && !stale
-        ? "Engine online · " + (st.spot ? "featured" : st.mode) + " · " + st.tiles + " tile" + (st.tiles === 1 ? "" : "s") + " · " + st.fps + " fps"
+        ? name + " online · " + (st.spot ? "featured" : st.mode) + " · " + st.tiles + " tile" + (st.tiles === 1 ? "" : "s") + " · " + st.fps + " fps"
         : "Engine online";
     }
     if (els.engAlert) {
@@ -812,6 +938,8 @@
   });
 
   window.addEventListener("beforeunload", function (e) {
+    // Note: the cloud stream (cs) keeps running without this tab — that's
+    // the point of the VPS — so it doesn't block closing the console.
     if (bc.live || vt.live) {
       e.preventDefault();
       e.returnValue = "";
@@ -943,12 +1071,21 @@
   if (els.goLiveBtn) {
     els.goLiveBtn.addEventListener("click", function () {
       if (!callFrame) return;
+      if (cs.running || cs.starting) { requestCloudEnd(); return; }
       if (bc.live || bc.starting) { requestEnd(); return; }
 
       panelError("");
       var eps = buildEndpoints();
       if (!eps.length) {
         panelError("Tick at least one destination and paste its stream key first.");
+        return;
+      }
+
+      // Priority: cloud runner (our FFmpeg, no Daily streaming) → engine via
+      // Daily (PROGRAM lock) → legacy VCS composition.
+      if (cloudCapable()) {
+        persistState();
+        startCloudStream(eps);
         return;
       }
 
@@ -1187,8 +1324,9 @@
         els.frameGuide.hidden = true;
       }
       if (els.pvTag) {
-        els.pvTag.textContent = bc.live ? "LIVE" : "ONLY YOU SEE THIS";
-        els.pvTag.className = "pv-tag" + (bc.live ? " is-live" : "");
+        var onAir = bc.live || cs.running;
+        els.pvTag.textContent = onAir ? "LIVE" : "ONLY YOU SEE THIS";
+        els.pvTag.className = "pv-tag" + (onAir ? " is-live" : "");
       }
     }
     setActiveModeButton(scene.mode);

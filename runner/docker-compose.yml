@@ -1,0 +1,8 @@
+services:
+  engine:
+    build: .
+    restart: always          # survives crashes AND server reboots
+    env_file: .env
+    shm_size: "1gb"          # Chromium needs real shared memory
+    ports:
+      - "8080:8080"          # GET /health — status JSON

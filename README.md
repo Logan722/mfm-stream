@@ -99,8 +99,10 @@ netlify dev        # serves the site + functions at http://localhost:8888
 5. ✅ Scripture — KJV via bible-api.com, one-tap brand scriptures
 6. ✅ **Program Engine (E1)** — self-composited broadcast: `program.html` canvas + audio mix,
    PROGRAM-locked Go Live, console Engine panel (see the blueprint's E1 notes)
-7. ⬜ E2 cloud runner (VPS + headless Chromium) · E3 studio mode v2, 9:16 portrait canvas
-8. ⬜ Auth, scheduling, hardening, dry runs
+7. ✅ **E2 cloud runner** — `runner/`: Dockerfile + watchdog + FFmpeg direct RTMP from a VPS
+   (no Daily streaming fees/limits); see `runner/README.md` for the VPS setup
+8. ⬜ E3 studio mode v2, 9:16 portrait canvas, media gain sliders
+9. ⬜ Auth, scheduling, hardening, dry runs
 
 ## Security notes
 

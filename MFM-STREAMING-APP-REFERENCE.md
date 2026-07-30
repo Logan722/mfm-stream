@@ -256,6 +256,7 @@ mfm-stream/
 ├── js/engine.js                  The compositor: canvas layouts, Royal Flame cards, WebAudio mix, app-message control
 ├── netlify/functions/token.js    Rooms + tokens (host / participant / engine roles, canReceive echo rules)
 ├── netlify.toml                  /api/* → functions; publish "."
+├── runner/                       E2 cloud runner: Dockerfile, compose, runner.js watchdog+FFmpeg, VPS README
 └── MFM-STREAMING-APP-REFERENCE.md  This file
 ```
 
@@ -313,11 +314,41 @@ the broadcast ourselves** (hybrid): we paint every pixel; Daily keeps doing tran
 - True OBS studio mode (real video preview/program) becomes buildable once the engine
   holds the tracks; boxed-card design returns; one-card limit dies.
 
+### E2 SHIPPED (July 30, 2026) — cloud runner + our own RTMP pipe
+- **`runner/` in the repo**: Dockerfile (Playwright image v1.62.1 + FFmpeg + Xvfb +
+  Pulse), docker-compose (`restart: always`, 1GB shm, port 8080 health), entrypoint
+  (Xvfb 1920×1080 + Pulse null sink `broadcast`), `runner.js`, step-by-step README
+  (Hetzner CPX31 / DO 4vCPU, install docker, clone, .env, `docker compose up -d --build`).
+- **runner.js**: launches a REAL Chromium window (kiosk, 1920×1080) on the virtual
+  display with throttling disabled and autoplay allowed, opens
+  `program.html?room&key&autostart=1&capture=1&monitor=1&runner=cloud`.
+  Watchdog every 20s: draw-loop counter stalled 3× → relaunch browser; not joined 3× →
+  reload (autostart rejoins); page crash → relaunch. During a mid-stream browser restart
+  FFmpeg keeps pushing (viewers see a freeze, not a drop). Health JSON at `:8080/health`.
+- **E2b — our own broadcast pipe**: console Go Live (when the cloud engine is online)
+  sends `{cmd:"rtmp", action:"start", urls}` over the room; the engine page bridges it to
+  runner.js via an exposed function; runner spawns **FFmpeg: x11grab (display) + Pulse
+  monitor (the mix) → libx264 1080p30 5 Mbps veryfast/zerolatency + AAC 160k → tee muxer
+  to ALL destinations at once** (`onfail=ignore` — one platform failing doesn't kill the
+  rest). Unexpected FFmpeg exit → 3 auto-retries; state flows back through engine
+  heartbeats to the console (LIVE chip, timer, Engine panel "streaming from the cloud
+  runner"). **No Daily streaming API involved — no streaming fees, no instance limits.**
+- **Engine page modes (E2)**: `?capture=1` fullscreen borderless canvas (verified
+  1920×1080 1:1), `?monitor=1` mix → system audio (the null sink), `?runner=cloud`
+  reported in heartbeats; `window.__MFM` liveness beacon; `window.__mfmRunnerEvent`
+  receives FFmpeg state.
+- **Go Live priority (automatic)**: cloud FFmpeg → Daily single-participant PROGRAM lock
+  (engine in a browser) → legacy VCS. One PROGRAM per room — don't run browser engine and
+  VPS engine together. Console closing does NOT stop the cloud stream (that's the point).
+- **9:16 vertical**: still parked; becomes a second FFmpeg encode once the E3 portrait
+  canvas exists. FFmpeg tee shape validated in sandbox; full Docker pipeline untestable
+  from the sandbox (no Daily WSS) — first field test = first VPS deploy per runner/README.
+
 ### Engine build phases (new chats)
 | Chat | Scope | Status |
 |------|-------|--------|
 | E1 | program.html engine: join, canvas compositor (grid/speaker/featured), Royal Flame cards (l3/prayer/scripture), audio mix, app-message control, console Engine panel + PROGRAM-locked Go Live | ✅ July 30, 2026 |
-| E2 | Cloud runner: Dockerfile (Playwright+Chromium), VPS setup steps, watchdog/auto-restart, engine health in console | ⬜ |
+| E2 | Cloud runner: Dockerfile (Playwright+Chromium), VPS setup steps, watchdog/auto-restart, engine health in console — PLUS the E2b FFmpeg direct-RTMP exit from Daily streaming | ✅ built July 30, 2026 · ⏳ first VPS deploy pending |
 | E3 | Studio mode v2 (real-video preview/program in console), 9:16 portrait canvas, media volume slider, transitions/slates, dry runs | ⬜ |
 
 ### E1 SHIPPED (July 30, 2026) — how it actually works

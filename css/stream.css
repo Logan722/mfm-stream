@@ -866,6 +866,21 @@ body.deck-hidden .deck { display: none; }
   animation: onair-pulse 2s ease-in-out infinite;
 }
 
+/* Capture mode (cloud runner): the canvas IS the screen — FFmpeg grabs it 1:1 */
+body.capture-mode { background: #000; }
+body.capture-mode::before, body.capture-mode::after { display: none; }
+.capture-mode .stage-bar, .capture-mode .engine-foot { display: none; }
+.capture-mode .engine-stage { padding: 0; background: #000; }
+.capture-mode .engine-stage canvas {
+  max-width: none;
+  max-height: none;
+  width: 100vw;
+  height: 100vh;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
 /* Media panel: file volume */
 .b-sublabel {
   font-size: 0.68rem;

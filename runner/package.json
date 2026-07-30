@@ -1,0 +1,8 @@
+{
+  "name": "mfm-engine-runner",
+  "private": true,
+  "description": "Cloud runner for the MFM Mega Region 2 Program Engine — headless-server Chromium + FFmpeg RTMP",
+  "dependencies": {
+    "playwright": "1.62.1"
+  }
+}
