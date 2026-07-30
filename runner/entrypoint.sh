@@ -12,7 +12,7 @@ pulseaudio --kill 2>/dev/null || true
 
 # Virtual display for Chromium (FFmpeg grabs this).
 # VERTICAL=1 widens it: program 16:9 at (0,0) + portrait 9:16 at x=1920.
-if [ "${VERTICAL:-0}" = "1" ]; then GEOM="3000x1920x24"; else GEOM="1920x1080x24"; fi
+if [ "${VERTICAL:-1}" != "0" ]; then GEOM="3000x1920x24"; else GEOM="1920x1080x24"; fi
 Xvfb "$DISPLAY" -screen 0 "$GEOM" -nolisten tcp &
 
 # Pulse null sink: Chromium plays the engine's mix into it; FFmpeg records

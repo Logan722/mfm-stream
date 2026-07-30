@@ -36,7 +36,7 @@ const DISPLAY = process.env.DISPLAY || ":99";
 const W = 1920, H = 1080, FPS = 30;
 // VERTICAL=1: the display widens to 3000×1920 — program 16:9 at (0,0),
 // portrait 9:16 at x=1920 — and a second FFmpeg can push Instagram.
-const WIDE = process.env.VERTICAL === "1";
+const WIDE = process.env.VERTICAL !== "0"; // portrait ON by default (Dawn)
 const DISP_W = WIDE ? 3000 : W;
 const DISP_H = WIDE ? 1920 : H;
 const WATCH_EVERY_MS = 20000;
