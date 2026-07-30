@@ -42,7 +42,7 @@
                placeholder="sanctuary" value="sanctuary">
 
         <button type="submit" id="join-btn" class="primary fire">Enter as Host</button>
-        <p class="hint">Owner powers + the control board: participants, co-hosts, and the 16:9 broadcast to YouTube &amp; Facebook.</p>
+        <p class="hint">Owner powers + the production deck: broadcast, lower thirds, prayer points, scripture, and people management.</p>
         <p class="error" id="error" role="alert" hidden></p>
       </form>
 
@@ -68,66 +68,56 @@
       </div>
       <div class="bar-right">
         <button type="button" class="bar-btn" id="copy-link">Copy invite link</button>
-        <button type="button" class="bar-btn board-toggle" id="board-toggle">Board</button>
+        <button type="button" class="bar-btn" id="deck-toggle">Deck &#9662;</button>
+        <button type="button" class="bar-btn board-toggle" id="board-toggle">People</button>
       </div>
     </div>
+
     <div class="console-body">
-      <div class="stage" id="stage"></div>
-      <aside class="board" id="board" aria-label="Host control board">
-        <div class="board-head">
-          <span class="board-title">The Board</span>
-          <button type="button" class="p-btn" id="mute-all">Mute all</button>
+      <div class="console-main">
+        <div class="stage" id="stage">
+          <!-- On-screen preview of what the broadcast shows -->
+          <div class="preview-layer" aria-hidden="true">
+            <div class="pv-card" id="pv-card" hidden>
+              <span class="pv-tag" id="pv-tag">PREVIEW</span>
+              <p class="pv-title" id="pv-title"></p>
+              <p class="pv-sub" id="pv-sub"></p>
+            </div>
+            <p class="pv-program" id="pv-program" hidden></p>
+          </div>
         </div>
-        <p class="board-note" id="board-note">
-          You can mute anyone; for privacy, browsers only let each person unmute themselves.
-        </p>
 
-        <!-- Broadcast (Phase 3) -->
-        <section class="b-section">
-          <button type="button" class="b-sec-head" id="bc-toggle" aria-expanded="true">
-            <span>Broadcast &mdash; 16:9</span><span class="b-caret" id="bc-caret">&#9662;</span>
-          </button>
-          <div class="b-sec-body" id="bc-body">
-            <p class="b-hint">Stream keys are saved on this device only &mdash; never on the server or in the repo.</p>
+        <!-- Production deck -->
+        <div class="deck" id="deck">
 
-            <label class="b-check"><input type="checkbox" id="yt-on" checked> YouTube &mdash; stream key</label>
+          <section class="deck-panel">
+            <p class="b-row-label">Broadcast &mdash; 16:9</p>
+            <label class="b-check"><input type="checkbox" id="yt-on" checked> YouTube</label>
             <input type="password" id="yt-key" class="b-input" autocomplete="off"
-                   placeholder="From YouTube Studio &rarr; Go live">
-
-            <label class="b-check"><input type="checkbox" id="fb-on"> Facebook &mdash; stream key</label>
+                   placeholder="Stream key &mdash; YouTube Studio &rarr; Go live">
+            <label class="b-check"><input type="checkbox" id="fb-on"> Facebook</label>
             <input type="password" id="fb-key" class="b-input" autocomplete="off"
-                   placeholder="From Facebook Live Producer">
-
-            <label class="b-check"><input type="checkbox" id="custom-on"> Custom RTMP destination</label>
+                   placeholder="Stream key &mdash; Live Producer">
+            <label class="b-check"><input type="checkbox" id="custom-on"> Custom RTMP</label>
             <input type="text" id="custom-url" class="b-input" autocomplete="off"
                    placeholder="rtmp://server/app/streamkey">
-
-            <div class="b-row-label">Layout on stream</div>
+            <p class="b-row-label">Layout on stream</p>
             <div class="b-modes" id="bc-modes">
               <button type="button" class="p-btn mode-btn active" data-mode="grid">Grid</button>
               <button type="button" class="p-btn mode-btn" data-mode="dominant">Speaker</button>
               <button type="button" class="p-btn mode-btn" data-mode="split">Split</button>
               <button type="button" class="p-btn mode-btn" data-mode="pip">PiP</button>
             </div>
-            <p class="b-hint">&ldquo;Feature&rdquo; on any person locks them full-screen on the stream; tap it again to release.</p>
-
-            <div class="b-row-label">Branding</div>
-            <label class="b-check"><input type="checkbox" id="labels-on" checked> Name labels on stream</label>
+            <label class="b-check"><input type="checkbox" id="labels-on" checked> Name labels</label>
             <input type="text" id="title-text" class="b-input" maxlength="60"
-                   placeholder="Program title (optional, bottom-right)">
-
+                   placeholder="Program title (bottom-right)">
             <button type="button" class="primary fire b-golive" id="go-live">Go Live</button>
             <p class="error" id="bc-error" role="alert" hidden></p>
-          </div>
-        </section>
+            <p class="b-hint">Keys stay on this device only. Overlays appear on the broadcast &mdash; the preview on your video shows what viewers get.</p>
+          </section>
 
-        <!-- Overlays (Phase 4) -->
-        <section class="b-section">
-          <button type="button" class="b-sec-head" id="ov-toggle" aria-expanded="true">
-            <span>Overlays</span><span class="b-caret" id="ov-caret">&#9662;</span>
-          </button>
-          <div class="b-sec-body" id="ov-body">
-            <div class="b-row-label">Lower third</div>
+          <section class="deck-panel">
+            <p class="b-row-label">Lower third</p>
             <input type="text" id="l3-name" class="b-input" maxlength="48"
                    placeholder="Name &mdash; e.g. Pastor Olumide Oni">
             <input type="text" id="l3-role" class="b-input mt6" maxlength="60"
@@ -136,28 +126,52 @@
               <button type="button" class="p-btn" id="l3-show">Show</button>
               <button type="button" class="p-btn" id="l3-hide">Hide</button>
             </div>
+            <p class="b-hint">One card shows at a time &mdash; lower third, prayer point, or scripture. The newest push wins.</p>
+          </section>
 
-            <div class="b-row-label">Prayer points</div>
-            <textarea id="pp-list" class="b-input b-textarea" rows="5"
+          <section class="deck-panel">
+            <p class="b-row-label">Prayer points</p>
+            <textarea id="pp-list" class="b-input b-textarea" rows="4"
                       placeholder="One prayer point per line&hellip;&#10;Every power assigned against my breakthrough, scatter, in the name of Jesus."></textarea>
             <div class="b-modes mt8">
-              <button type="button" class="p-btn" id="pp-prev">&#9664; Prev</button>
+              <button type="button" class="p-btn" id="pp-prev">&#9664;</button>
               <button type="button" class="p-btn" id="pp-push">Push</button>
-              <button type="button" class="p-btn" id="pp-next">Next &#9654;</button>
+              <button type="button" class="p-btn" id="pp-next">&#9654;</button>
               <button type="button" class="p-btn" id="pp-hide">Hide</button>
             </div>
-            <p class="b-hint" id="ov-status">Nothing on stream.</p>
-            <p class="b-hint">One card shows at a time &mdash; pushing a prayer point replaces the lower third, and vice-versa. Cards appear once you&rsquo;re live.</p>
-          </div>
-        </section>
+            <p class="b-hint">Points are saved on this device. Prev / Next push the change straight to the stream.</p>
+          </section>
 
-        <ul class="p-list" id="plist"></ul>
+          <section class="deck-panel">
+            <p class="b-row-label">Scripture &mdash; KJV</p>
+            <div class="b-modes" id="sc-brand">
+              <button type="button" class="p-btn" data-ref="Jeremiah 23:29">Jer 23:29</button>
+              <button type="button" class="p-btn" data-ref="Deuteronomy 4:11">Deut 4:11</button>
+              <button type="button" class="p-btn" data-ref="Jeremiah 20:9">Jer 20:9</button>
+              <button type="button" class="p-btn" data-ref="Obadiah 1:17">Obad 1:17</button>
+            </div>
+            <input type="text" id="sc-input" class="b-input mt8" maxlength="60"
+                   placeholder="Any reference &mdash; e.g. Psalm 144:1">
+            <div class="b-modes mt8">
+              <button type="button" class="p-btn" id="sc-go">Show verse</button>
+              <button type="button" class="p-btn" id="sc-hide">Hide</button>
+            </div>
+            <p class="b-hint" id="sc-status">King James Version &middot; bible-api.com</p>
+          </section>
 
-        <div class="board-coming">
-          <p class="coming-title">Coming to this board</p>
-          <p class="coming-item">KJV scripture overlays · Phase 5</p>
-          <p class="coming-item">Instagram 9:16 vertical · Phase 6</p>
         </div>
+      </div>
+
+      <!-- People sidebar -->
+      <aside class="board" id="board" aria-label="People">
+        <div class="board-head">
+          <span class="board-title">People</span>
+          <button type="button" class="p-btn" id="mute-all">Mute all</button>
+        </div>
+        <p class="board-note" id="board-note">
+          You can mute anyone; for privacy, browsers only let each person unmute themselves.
+        </p>
+        <ul class="p-list" id="plist"></ul>
       </aside>
     </div>
   </div>

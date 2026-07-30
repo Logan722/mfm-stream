@@ -390,7 +390,107 @@ body.in-call .site-foot { display: none; }
   min-height: 0;
 }
 
-.console-body .stage { flex: 1; }
+.console-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.console-main .stage { flex: 1; min-height: 0; }
+
+/* ---------- Production deck (bottom) ---------- */
+.deck {
+  display: flex;
+  align-items: stretch;
+  height: 292px;
+  flex-shrink: 0;
+  background: var(--bg-navy);
+  border-top: 1px solid var(--line-navy);
+  overflow-x: auto;
+}
+
+body.deck-hidden .deck { display: none; }
+
+.deck-panel {
+  flex: 1 1 0;
+  min-width: 225px;
+  padding: 12px 14px 16px;
+  border-right: 1px solid var(--line-navy);
+  overflow-y: auto;
+}
+
+.deck-panel:last-child { border-right: none; }
+
+.deck-panel .b-row-label:first-child { margin-top: 2px; }
+
+.deck-panel .b-golive {
+  margin-top: 12px !important;
+  padding: 10px 14px !important;
+  font-size: 0.85rem !important;
+}
+
+/* ---------- On-screen overlay preview ---------- */
+.preview-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.pv-card {
+  position: absolute;
+  left: 18px;
+  bottom: 64px;
+  max-width: min(46%, 560px);
+  background: rgba(15, 26, 48, 0.93);
+  border-left: 3px solid var(--gold);
+  border-radius: 6px;
+  padding: 12px 16px 12px 14px;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.45);
+}
+
+.pv-tag {
+  position: absolute;
+  top: -9px;
+  right: 10px;
+  font-size: 0.55rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  border-radius: 4px;
+  padding: 2px 7px;
+  background: var(--gold);
+  color: var(--bg-navy-deep);
+}
+
+.pv-tag.is-live { background: #d63b3b; color: #fff2ee; }
+
+.pv-title {
+  font-family: var(--serif);
+  font-weight: 650;
+  font-size: 1.02rem;
+  color: var(--cream);
+  line-height: 1.25;
+}
+
+.pv-sub {
+  margin-top: 4px;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: #b9c4da;
+}
+
+.pv-program {
+  position: absolute;
+  right: 18px;
+  bottom: 64px;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 0.85rem;
+  color: rgba(240, 230, 208, 0.92);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6);
+}
 
 .bar-mid {
   display: flex;
@@ -540,30 +640,7 @@ body.in-call .site-foot { display: none; }
 .p-btn.danger:hover:not(:disabled) { background: rgba(232, 93, 38, 0.12); color: #ffd9c4; }
 .p-btn.danger.confirming { background: var(--fire); color: #fff8ef; border-color: var(--fire); }
 
-/* ---------- Broadcast panel ---------- */
-.b-section {
-  border-bottom: 1px solid var(--line-navy);
-}
-
-.b-sec-head {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 14px 16px;
-  font-family: var(--serif);
-  font-weight: 650;
-  font-size: 1rem;
-  color: var(--cream);
-}
-
-.b-caret { color: var(--gold); font-size: 0.85rem; }
-
-.b-sec-body { padding: 0 16px 16px; }
-
+/* ---------- Deck panel form elements ---------- */
 .b-hint {
   font-size: 0.72rem;
   line-height: 1.5;
@@ -709,6 +786,24 @@ body.in-call .site-foot { display: none; }
   }
 
   body.board-open .board { transform: translateX(0); }
+
+  /* Deck stacks vertically on small screens */
+  .deck {
+    flex-direction: column;
+    height: auto;
+    max-height: 46vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .deck-panel {
+    border-right: none;
+    border-bottom: 1px solid var(--line-navy);
+    overflow-y: visible;
+  }
+
+  .pv-card { max-width: 72%; bottom: 84px; }
+  .pv-program { bottom: 84px; }
 }
 
 @media (max-width: 520px) {

@@ -39,9 +39,8 @@
     // Broadcast panel
     liveChip: document.getElementById("live-chip"),
     liveTimer: document.getElementById("live-timer"),
-    bcToggle: document.getElementById("bc-toggle"),
-    bcCaret: document.getElementById("bc-caret"),
-    bcBody: document.getElementById("bc-body"),
+    deckToggle: document.getElementById("deck-toggle"),
+    deck: document.getElementById("deck"),
     ytOn: document.getElementById("yt-on"),
     ytKey: document.getElementById("yt-key"),
     fbOn: document.getElementById("fb-on"),
@@ -53,11 +52,13 @@
     titleText: document.getElementById("title-text"),
     goLiveBtn: document.getElementById("go-live"),
     bcError: document.getElementById("bc-error"),
-    // Overlays panel
-    ovToggle: document.getElementById("ov-toggle"),
-    ovCaret: document.getElementById("ov-caret"),
-    ovBody: document.getElementById("ov-body"),
-    ovStatus: document.getElementById("ov-status"),
+    // Preview layer
+    pvCard: document.getElementById("pv-card"),
+    pvTag: document.getElementById("pv-tag"),
+    pvTitle: document.getElementById("pv-title"),
+    pvSub: document.getElementById("pv-sub"),
+    pvProgram: document.getElementById("pv-program"),
+    // Overlays
     l3Name: document.getElementById("l3-name"),
     l3Role: document.getElementById("l3-role"),
     l3Show: document.getElementById("l3-show"),
@@ -67,6 +68,12 @@
     ppPush: document.getElementById("pp-push"),
     ppNext: document.getElementById("pp-next"),
     ppHide: document.getElementById("pp-hide"),
+    // Scripture
+    scBrand: document.getElementById("sc-brand"),
+    scInput: document.getElementById("sc-input"),
+    scGo: document.getElementById("sc-go"),
+    scHide: document.getElementById("sc-hide"),
+    scStatus: document.getElementById("sc-status"),
   };
 
   var callFrame = null;
@@ -527,16 +534,17 @@
         bcRemember();
         // Branding changes apply live without restarting the stream
         if (bc.live && (k === "labelsOn" || k === "titleText")) pushLayout();
+        if (k === "titleText") updateOvStatus();
       });
     });
 
-  /* ---------- Collapse/expand ---------- */
-  if (els.bcToggle && els.bcBody) {
-    els.bcToggle.addEventListener("click", function () {
-      var hidden = els.bcBody.style.display === "none";
-      els.bcBody.style.display = hidden ? "" : "none";
-      if (els.bcCaret) els.bcCaret.textContent = hidden ? "▾" : "▸";
-      els.bcToggle.setAttribute("aria-expanded", hidden ? "true" : "false");
+  if (els.titleText) els.titleText.addEventListener("input", function () { updateOvStatus(); });
+
+  /* ---------- Deck show/hide (more room for video when needed) ---------- */
+  if (els.deckToggle) {
+    els.deckToggle.addEventListener("click", function () {
+      var hidden = document.body.classList.toggle("deck-hidden");
+      els.deckToggle.innerHTML = hidden ? "Deck &#9656;" : "Deck &#9662;";
     });
   }
 
@@ -755,16 +763,6 @@
     if (els[k]) els[k].addEventListener("change", ovRemember);
   });
 
-  /* Collapse/expand — same pattern as the broadcast section */
-  if (els.ovToggle && els.ovBody) {
-    els.ovToggle.addEventListener("click", function () {
-      var hidden = els.ovBody.style.display === "none";
-      els.ovBody.style.display = hidden ? "" : "none";
-      if (els.ovCaret) els.ovCaret.textContent = hidden ? "▾" : "▸";
-      els.ovToggle.setAttribute("aria-expanded", hidden ? "true" : "false");
-    });
-  }
-
   function ppPoints() {
     if (!els.ppList) return [];
     return els.ppList.value
@@ -780,14 +778,25 @@
     if (bc.live) pushLayout();
   }
 
+  /* The on-screen preview IS the status: it mirrors exactly what the
+     broadcast composition is showing (or will show when you go live). */
   function updateOvStatus() {
-    if (!els.ovStatus) return;
-    if (!ov.banner) {
-      els.ovStatus.textContent = bc.live ? "Nothing on stream." : "Nothing queued. Cards appear once you're live.";
-    } else {
-      var what = ov.banner.kind === "prayer" ? ov.banner.title
-               : "Lower third — " + ov.banner.title;
-      els.ovStatus.textContent = (bc.live ? "On stream: " : "Queued for stream: ") + what;
+    if (els.pvCard) {
+      if (ov.banner) {
+        els.pvCard.hidden = false;
+        els.pvTitle.textContent = ov.banner.title;
+        els.pvSub.textContent = ov.banner.subtitle || "";
+        els.pvSub.hidden = !ov.banner.subtitle;
+        els.pvTag.textContent = bc.live ? "LIVE" : "PREVIEW";
+        els.pvTag.className = "pv-tag" + (bc.live ? " is-live" : "");
+      } else {
+        els.pvCard.hidden = true;
+      }
+    }
+    if (els.pvProgram) {
+      var t = els.titleText ? els.titleText.value.trim().slice(0, 60) : "";
+      els.pvProgram.textContent = t;
+      els.pvProgram.hidden = !t;
     }
     if (els.l3Show) {
       els.l3Show.textContent = (ov.banner && ov.banner.kind === "l3") ? "On ✓ (update)" : "Show";
@@ -845,6 +854,76 @@
   if (els.ppHide) {
     els.ppHide.addEventListener("click", function () {
       if (ov.banner && ov.banner.kind === "prayer") setCard(null);
+    });
+  }
+
+  /* ============================================================
+     Scripture (Phase 5) — KJV via bible-api.com (public domain)
+     Pushes into the same card slot as lower thirds & prayer points.
+     ============================================================ */
+
+  var scCache = {}; // reference -> { reference, text }
+
+  function scNote(msg) {
+    if (els.scStatus) els.scStatus.textContent = msg;
+  }
+
+  function showScripture(ref) {
+    ref = String(ref || "").trim().slice(0, 60);
+    if (!ref) { els.scInput && els.scInput.focus(); return; }
+
+    var key = ref.toLowerCase();
+    if (scCache[key]) { pushVerse(scCache[key]); return; }
+
+    scNote("Fetching " + ref + "…");
+    fetch("https://bible-api.com/" + encodeURIComponent(ref) + "?translation=kjv")
+      .then(function (res) {
+        if (!res.ok) throw new Error("not found");
+        return res.json();
+      })
+      .then(function (data) {
+        if (!data || !data.text) throw new Error("empty");
+        var verse = {
+          reference: data.reference || ref,
+          text: String(data.text).replace(/\s+/g, " ").trim(),
+        };
+        scCache[key] = verse;
+        pushVerse(verse);
+      })
+      .catch(function () {
+        scNote("Couldn't find \"" + ref + "\" — check the reference (e.g. Psalm 144:1).");
+      });
+  }
+
+  function pushVerse(verse) {
+    // Keep cards readable on stream: trim very long passages
+    var text = verse.text.length > 260 ? verse.text.slice(0, 257).replace(/\s+\S*$/, "") + "…" : verse.text;
+    setCard({ kind: "scripture", title: verse.reference + " · KJV", subtitle: text });
+    scNote("King James Version · bible-api.com");
+  }
+
+  if (els.scGo) {
+    els.scGo.addEventListener("click", function () {
+      showScripture(els.scInput ? els.scInput.value : "");
+    });
+  }
+
+  if (els.scInput) {
+    els.scInput.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { e.preventDefault(); showScripture(els.scInput.value); }
+    });
+  }
+
+  if (els.scBrand) {
+    els.scBrand.addEventListener("click", function (e) {
+      var btn = e.target.closest ? e.target.closest("[data-ref]") : null;
+      if (btn) showScripture(btn.getAttribute("data-ref"));
+    });
+  }
+
+  if (els.scHide) {
+    els.scHide.addEventListener("click", function () {
+      if (ov.banner && ov.banner.kind === "scripture") setCard(null);
     });
   }
 

@@ -141,9 +141,21 @@ browser (laptop or phone). Two views of the same app:
 - Cards can be queued before going live; they appear when the stream starts.
 - **Royal Flame branding:** navy `#142240`, gold `#c9952c`, fire `#e85d26`; Fraunces + Inter Tight.
 
-### Bible / scripture
-- Host types a reference → bible-api.com returns **KJV** → branded overlay on the broadcast.
-- Preloaded **brand scriptures** as one-tap buttons: Jer 23:29, Deut 4:11, Jer 20:9, Obadiah 1:17.
+### Bible / scripture (Phase 5 ✅)
+- Scripture panel on the deck: type any reference → bible-api.com returns **KJV** →
+  pushed into the shared card slot ("Reference · KJV" + verse text, long passages trimmed ~260 chars).
+- **Brand scriptures as one-tap buttons:** Jer 23:29, Deut 4:11, Jer 20:9, Obadiah 1:17
+  (all four verified working against the API). Verses cached per session; Enter key works.
+
+### Console layout (reworked July 2026 after field feedback)
+- **Production deck** along the bottom of the video: four side-by-side panels —
+  Broadcast · Lower third · Prayer points · Scripture. "Deck" button collapses it for full video.
+- **Right sidebar = People only** (list, statuses, moderation, mute-all).
+- **On-screen overlay preview:** the card + program title render over the host's video area
+  (pointer-through), tagged **PREVIEW** (queued, not live) or **LIVE** (on the broadcast).
+  This exists because compositor overlays appear ONLY in the RTMP output — never in the
+  room itself — and the host must see what viewers see without opening YouTube.
+- Mobile: deck stacks vertically (scrollable), People stays a slide-in drawer.
 
 ### Multistream
 - **YouTube + Facebook simultaneously (landscape) = rock-solid primary.**
@@ -169,7 +181,7 @@ mfm-stream/
 ├── host.html                     Host console — pre-join (HOST_KEY) + Prebuilt video + control board
 ├── css/stream.css                Royal Flame design system (incl. console + broadcast styles)
 ├── js/join.js                    Participant join logic (Daily Prebuilt, themed)
-├── js/console.js                 Host console: board, broadcast, overlays (lower thirds, prayer points)
+├── js/console.js                 Host console: deck (broadcast, lower third, prayer points, scripture), people, preview
 ├── netlify/functions/token.js    Creates private rooms + mints tokens (Daily REST)
 ├── netlify.toml                  /api/* → functions; publish "."
 └── MFM-STREAMING-APP-REFERENCE.md  This file
@@ -203,8 +215,9 @@ Rotate the PAT after each session.
 3. **Broadcast layouts** — 16:9 composition, layouts, spotlight, branding. ✅
    *(9:16 vertical moves to Phase 6 with the Instagram work — needs a 2nd streaming instance)*
 4. **Overlays** — lower thirds + prayer points on the board. ✅ *(scripture next)*
-5. **Multistream** — YouTube + Facebook; Instagram vertical secondary.
-6. **Hardening** — auth, scheduling, reliability, dry runs before any live use.
+5. **Bible / scripture** — KJV overlay + one-tap brand scriptures. ✅
+6. **Multistream extras** — Instagram 9:16 vertical (2nd streaming instance).
+7. **Hardening** — auth, scheduling, reliability, dry runs before any live use.
 
 ---
 
@@ -217,7 +230,7 @@ Rotate the PAT after each session.
 | 2 | Host / co-host controls (hybrid console: Prebuilt video + custom board) | ✅ July 2026 |
 | 3 | Broadcast composition — 16:9, layouts, spotlight, branding (9:16 → chat 6) | ✅ July 2026 |
 | 4 | Overlays — lower thirds + prayer points (shared banner card slot) | ✅ July 2026 |
-| 5 | Bible / scripture integration | ⬜ |
+| 5 | Bible / scripture (KJV panel + brand one-taps) + console deck redesign + on-screen preview | ✅ July 2026 |
 | 6 | Multistream (YT/FB + IG vertical) | ⬜ |
 | 7 | Auth, scheduling, hardening, dry runs | ⬜ |
 
