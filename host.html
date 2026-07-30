@@ -42,7 +42,7 @@
                placeholder="sanctuary" value="sanctuary">
 
         <button type="submit" id="join-btn" class="primary fire">Enter as Host</button>
-        <p class="hint">You&rsquo;ll join with owner powers and the control board: mute, camera-off, co-host promotion, and remove &mdash; per person or all at once.</p>
+        <p class="hint">Owner powers + the control board: participants, co-hosts, and the 16:9 broadcast to YouTube &amp; Facebook.</p>
         <p class="error" id="error" role="alert" hidden></p>
       </form>
 
@@ -64,6 +64,7 @@
       <div class="bar-mid">
         <span class="bar-room-chip">Room: <strong id="bar-room">sanctuary</strong></span>
         <span class="bar-count" id="bar-count"></span>
+        <span class="onair" id="live-chip" hidden>&#9679; LIVE <span id="live-timer">00:00</span></span>
       </div>
       <div class="bar-right">
         <button type="button" class="bar-btn" id="copy-link">Copy invite link</button>
@@ -80,12 +81,54 @@
         <p class="board-note" id="board-note">
           You can mute anyone; for privacy, browsers only let each person unmute themselves.
         </p>
+
+        <!-- Broadcast (Phase 3) -->
+        <section class="b-section">
+          <button type="button" class="b-sec-head" id="bc-toggle" aria-expanded="true">
+            <span>Broadcast &mdash; 16:9</span><span class="b-caret" id="bc-caret">&#9662;</span>
+          </button>
+          <div class="b-sec-body" id="bc-body">
+            <p class="b-hint">Stream keys are saved on this device only &mdash; never on the server or in the repo.</p>
+
+            <label class="b-check"><input type="checkbox" id="yt-on" checked> YouTube &mdash; stream key</label>
+            <input type="password" id="yt-key" class="b-input" autocomplete="off"
+                   placeholder="From YouTube Studio &rarr; Go live">
+
+            <label class="b-check"><input type="checkbox" id="fb-on"> Facebook &mdash; stream key</label>
+            <input type="password" id="fb-key" class="b-input" autocomplete="off"
+                   placeholder="From Facebook Live Producer">
+
+            <label class="b-check"><input type="checkbox" id="custom-on"> Custom RTMP destination</label>
+            <input type="text" id="custom-url" class="b-input" autocomplete="off"
+                   placeholder="rtmp://server/app/streamkey">
+
+            <div class="b-row-label">Layout on stream</div>
+            <div class="b-modes" id="bc-modes">
+              <button type="button" class="p-btn mode-btn active" data-mode="grid">Grid</button>
+              <button type="button" class="p-btn mode-btn" data-mode="dominant">Speaker</button>
+              <button type="button" class="p-btn mode-btn" data-mode="split">Split</button>
+              <button type="button" class="p-btn mode-btn" data-mode="pip">PiP</button>
+            </div>
+            <p class="b-hint">&ldquo;Feature&rdquo; on any person locks them full-screen on the stream; tap it again to release.</p>
+
+            <div class="b-row-label">Branding</div>
+            <label class="b-check"><input type="checkbox" id="labels-on" checked> Name labels on stream</label>
+            <label class="b-check"><input type="checkbox" id="logo-on" checked> MFM logo watermark</label>
+            <input type="text" id="title-text" class="b-input" maxlength="60"
+                   placeholder="Program title (optional, bottom-left)">
+
+            <button type="button" class="primary fire b-golive" id="go-live">Go Live</button>
+            <p class="error" id="bc-error" role="alert" hidden></p>
+          </div>
+        </section>
+
         <ul class="p-list" id="plist"></ul>
+
         <div class="board-coming">
           <p class="coming-title">Coming to this board</p>
-          <p class="coming-item">Broadcast &mdash; 16:9 / 9:16 · Phase 3</p>
           <p class="coming-item">Lower thirds &amp; prayer points · Phase 4</p>
           <p class="coming-item">KJV scripture overlays · Phase 5</p>
+          <p class="coming-item">Instagram 9:16 vertical · Phase 6</p>
         </div>
       </aside>
     </div>

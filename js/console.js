@@ -36,12 +36,41 @@
     plist: document.getElementById("plist"),
     muteAllBtn: document.getElementById("mute-all"),
     boardNote: document.getElementById("board-note"),
+    // Broadcast panel
+    liveChip: document.getElementById("live-chip"),
+    liveTimer: document.getElementById("live-timer"),
+    bcToggle: document.getElementById("bc-toggle"),
+    bcCaret: document.getElementById("bc-caret"),
+    bcBody: document.getElementById("bc-body"),
+    ytOn: document.getElementById("yt-on"),
+    ytKey: document.getElementById("yt-key"),
+    fbOn: document.getElementById("fb-on"),
+    fbKey: document.getElementById("fb-key"),
+    customOn: document.getElementById("custom-on"),
+    customUrl: document.getElementById("custom-url"),
+    modes: document.getElementById("bc-modes"),
+    labelsOn: document.getElementById("labels-on"),
+    logoOn: document.getElementById("logo-on"),
+    titleText: document.getElementById("title-text"),
+    goLiveBtn: document.getElementById("go-live"),
+    bcError: document.getElementById("bc-error"),
   };
 
   var callFrame = null;
   var joinedRoom = "sanctuary";
   var renderQueued = false;
   var confirmingEject = {}; // session_id -> timeout handle
+
+  /* Broadcast state */
+  var bc = {
+    live: false,
+    starting: false,
+    startedAt: 0,
+    timerId: null,
+    mode: "grid",          // grid | dominant | split | pip
+    spotlightId: null,     // session_id featured full-screen
+    confirmingEnd: null,   // timeout handle for two-tap end
+  };
 
   /* ---------- Room name ---------- */
   function cleanRoom(value) {
@@ -181,7 +210,23 @@
       .on("joined-meeting", queueRender)
       .on("participant-joined", queueRender)
       .on("participant-updated", queueRender)
-      .on("participant-left", queueRender)
+      .on("participant-left", function (ev) {
+        // If the featured person leaves, release the spotlight on stream
+        if (bc.spotlightId && ev && ev.participant &&
+            ev.participant.session_id === bc.spotlightId) {
+          bc.spotlightId = null;
+          if (bc.live) pushLayout();
+        }
+        queueRender();
+      })
+      .on("live-streaming-started", onLiveStarted)
+      .on("live-streaming-stopped", onLiveStopped)
+      .on("live-streaming-error", function (ev) {
+        bc.starting = false;
+        panelError("Broadcast error: " + ((ev && ev.errorMsg) || "unknown") +
+          " — check your stream key and try again.");
+        onLiveStopped();
+      })
       .on("left-meeting", endCall)
       .on("error", function (ev) {
         showError("Call error: " + ((ev && ev.errorMsg) || "unknown. Please rejoin."));
@@ -195,6 +240,7 @@
   }
 
   function endCall() {
+    onLiveStopped(); // clears LIVE UI + timer if we were streaming
     if (callFrame) {
       try { callFrame.destroy(); } catch (e) { /* already gone */ }
       callFrame = null;
@@ -279,10 +325,26 @@
 
       li.appendChild(top);
 
-      // --- controls (not for yourself; not for other owner-token hosts) ---
+      var row = document.createElement("div");
+      row.className = "p-actions";
+
+      // --- Feature on stream (any person, including yourself) ---
+      var featured = bc.spotlightId === p.session_id;
+      var feat = actionBtn(
+        featured ? "★ Featured" : "Feature",
+        false,
+        function () {
+          bc.spotlightId = featured ? null : p.session_id;
+          if (bc.live) pushLayout();
+          queueRender();
+        }
+      );
+      feat.classList.add("feature");
+      if (featured) feat.classList.add("active");
+      row.appendChild(feat);
+
+      // --- moderation controls (not for yourself; not for other owner-token hosts) ---
       if (!p.local && !p.owner) {
-        var row = document.createElement("div");
-        row.className = "p-actions";
 
         row.appendChild(actionBtn(
           p.audio ? "Mute" : "Muted",
@@ -327,10 +389,9 @@
         eject.classList.add("danger");
         if (confirmingEject[p.session_id]) eject.classList.add("confirming");
         row.appendChild(eject);
-
-        li.appendChild(row);
       }
 
+      li.appendChild(row);
       els.plist.appendChild(li);
     });
   }
@@ -398,5 +459,249 @@
     els.boardToggle.addEventListener("click", function () {
       document.body.classList.toggle("board-open");
     });
+  }
+
+  /* ============================================================
+     Broadcast (Phase 3) — 16:9 to YouTube/Facebook via Daily
+     live streaming, composed with the VCS "custom" preset so
+     overlays (Phases 4–5) can be layered in without restarting.
+     ============================================================ */
+
+  var YT_TEMPLATE = "rtmp://a.rtmp.youtube.com/live2/";
+  var FB_TEMPLATE = "rtmps://live-api-s.facebook.com:443/rtmp/";
+  var bcStoreKey = "mfm-stream-broadcast";
+
+  /* ---------- Panel persistence (this device only) ---------- */
+  try {
+    var bcSaved = JSON.parse(localStorage.getItem(bcStoreKey) || "{}");
+    if (els.ytOn && "ytOn" in bcSaved) els.ytOn.checked = !!bcSaved.ytOn;
+    if (els.ytKey && bcSaved.ytKey) els.ytKey.value = bcSaved.ytKey;
+    if (els.fbOn && "fbOn" in bcSaved) els.fbOn.checked = !!bcSaved.fbOn;
+    if (els.fbKey && bcSaved.fbKey) els.fbKey.value = bcSaved.fbKey;
+    if (els.customOn && "customOn" in bcSaved) els.customOn.checked = !!bcSaved.customOn;
+    if (els.customUrl && bcSaved.customUrl) els.customUrl.value = bcSaved.customUrl;
+    if (els.labelsOn && "labels" in bcSaved) els.labelsOn.checked = !!bcSaved.labels;
+    if (els.logoOn && "logo" in bcSaved) els.logoOn.checked = !!bcSaved.logo;
+    if (els.titleText && bcSaved.title) els.titleText.value = bcSaved.title;
+    if (bcSaved.mode) { bc.mode = bcSaved.mode; setActiveModeButton(bc.mode); }
+  } catch (e) { /* fine */ }
+
+  function bcRemember() {
+    try {
+      localStorage.setItem(bcStoreKey, JSON.stringify({
+        ytOn: els.ytOn ? els.ytOn.checked : true,
+        ytKey: els.ytKey ? els.ytKey.value : "",
+        fbOn: els.fbOn ? els.fbOn.checked : false,
+        fbKey: els.fbKey ? els.fbKey.value : "",
+        customOn: els.customOn ? els.customOn.checked : false,
+        customUrl: els.customUrl ? els.customUrl.value : "",
+        labels: els.labelsOn ? els.labelsOn.checked : true,
+        logo: els.logoOn ? els.logoOn.checked : true,
+        title: els.titleText ? els.titleText.value : "",
+        mode: bc.mode,
+      }));
+    } catch (e) { /* fine */ }
+  }
+
+  ["ytOn", "ytKey", "fbOn", "fbKey", "customOn", "customUrl", "labelsOn", "logoOn", "titleText"]
+    .forEach(function (k) {
+      if (els[k]) els[k].addEventListener("change", function () {
+        bcRemember();
+        // Branding changes apply live without restarting the stream
+        if (bc.live && (k === "labelsOn" || k === "logoOn" || k === "titleText")) pushLayout();
+      });
+    });
+
+  /* ---------- Collapse/expand ---------- */
+  if (els.bcToggle && els.bcBody) {
+    els.bcToggle.addEventListener("click", function () {
+      var hidden = els.bcBody.style.display === "none";
+      els.bcBody.style.display = hidden ? "" : "none";
+      if (els.bcCaret) els.bcCaret.textContent = hidden ? "▾" : "▸";
+      els.bcToggle.setAttribute("aria-expanded", hidden ? "true" : "false");
+    });
+  }
+
+  /* ---------- Layout modes ---------- */
+  function setActiveModeButton(mode) {
+    if (!els.modes) return;
+    Array.prototype.forEach.call(els.modes.querySelectorAll(".mode-btn"), function (b) {
+      b.classList.toggle("active", b.getAttribute("data-mode") === mode);
+    });
+  }
+
+  if (els.modes) {
+    els.modes.addEventListener("click", function (e) {
+      var btn = e.target.closest ? e.target.closest(".mode-btn") : null;
+      if (!btn) return;
+      bc.mode = btn.getAttribute("data-mode") || "grid";
+      setActiveModeButton(bc.mode);
+      bcRemember();
+      if (bc.live) pushLayout();
+    });
+  }
+
+  /* ---------- Endpoints & composition ---------- */
+  function panelError(msg) {
+    if (!els.bcError) return;
+    if (!msg) { els.bcError.hidden = true; els.bcError.textContent = ""; return; }
+    els.bcError.hidden = false;
+    els.bcError.textContent = msg;
+  }
+
+  function buildEndpoints() {
+    var eps = [];
+    if (els.ytOn && els.ytOn.checked && els.ytKey && els.ytKey.value.trim()) {
+      eps.push(YT_TEMPLATE + els.ytKey.value.trim());
+    }
+    if (els.fbOn && els.fbOn.checked && els.fbKey && els.fbKey.value.trim()) {
+      eps.push(FB_TEMPLATE + els.fbKey.value.trim());
+    }
+    if (els.customOn && els.customOn.checked && els.customUrl && els.customUrl.value.trim()) {
+      eps.push(els.customUrl.value.trim());
+    }
+    return eps;
+  }
+
+  function compositionParams() {
+    var params = {
+      mode: bc.spotlightId ? "single" : bc.mode,
+      "videoSettings.showParticipantLabels": !!(els.labelsOn && els.labelsOn.checked),
+      "videoSettings.preferScreenshare": true,
+    };
+
+    if (bc.spotlightId) {
+      params["videoSettings.preferredParticipantIds"] = bc.spotlightId;
+    }
+
+    var title = els.titleText ? els.titleText.value.trim().slice(0, 60) : "";
+    params.showTextOverlay = !!title;
+    if (title) {
+      params["text.content"] = title;
+      params["text.align_horizontal"] = "left";
+      params["text.align_vertical"] = "bottom";
+      params["text.offset_x"] = 24;
+      params["text.fontFamily"] = "Bitter";
+      params["text.color"] = "rgba(240, 230, 208, 0.96)";
+    }
+
+    var logo = !!(els.logoOn && els.logoOn.checked);
+    params.showImageOverlay = logo;
+    if (logo) {
+      params["image.assetName"] = "logo";
+      params["image.position"] = "bottom-right";
+      params["image.aspectRatio"] = 1.105; // 400x362 emblem
+      params["image.height_vh"] = 0.13;
+      params["image.margin_vh"] = 0.02;
+      params["image.opacity"] = 0.9;
+    }
+
+    return params;
+  }
+
+  /* ---------- Go live / end ---------- */
+  if (els.goLiveBtn) {
+    els.goLiveBtn.addEventListener("click", function () {
+      if (!callFrame) return;
+      if (bc.live || bc.starting) { requestEnd(); return; }
+
+      panelError("");
+      var eps = buildEndpoints();
+      if (!eps.length) {
+        panelError("Tick at least one destination and paste its stream key first.");
+        return;
+      }
+
+      bc.starting = true;
+      els.goLiveBtn.disabled = true;
+      els.goLiveBtn.textContent = "Connecting…";
+      bcRemember();
+
+      try {
+        callFrame.startLiveStreaming({
+          rtmpUrl: eps.length === 1 ? eps[0] : eps,
+          width: 1920,
+          height: 1080,
+          layout: {
+            preset: "custom",
+            composition_params: compositionParams(),
+            session_assets: {
+              "images/logo": window.location.origin + "/img/logo.png",
+            },
+          },
+        });
+      } catch (err) {
+        bc.starting = false;
+        els.goLiveBtn.disabled = false;
+        els.goLiveBtn.textContent = "Go Live";
+        panelError("Could not start the broadcast: " + (err.message || err));
+      }
+    });
+  }
+
+  function requestEnd() {
+    if (!bc.live && !bc.starting) return;
+    if (bc.confirmingEnd) {
+      clearTimeout(bc.confirmingEnd);
+      bc.confirmingEnd = null;
+      try { callFrame.stopLiveStreaming(); } catch (e) { onLiveStopped(); }
+      els.goLiveBtn.textContent = "Ending…";
+      els.goLiveBtn.disabled = true;
+    } else {
+      bc.confirmingEnd = setTimeout(function () {
+        bc.confirmingEnd = null;
+        if (bc.live) els.goLiveBtn.textContent = "End broadcast";
+      }, 4000);
+      els.goLiveBtn.textContent = "Tap again to end";
+    }
+  }
+
+  function pushLayout() {
+    if (!callFrame || !bc.live) return;
+    try {
+      callFrame.updateLiveStreaming({
+        layout: { preset: "custom", composition_params: compositionParams() },
+      });
+    } catch (e) { /* stream may be mid-transition; next change re-applies */ }
+  }
+
+  function onLiveStarted() {
+    bc.live = true;
+    bc.starting = false;
+    bc.startedAt = Date.now();
+    if (els.goLiveBtn) {
+      els.goLiveBtn.disabled = false;
+      els.goLiveBtn.textContent = "End broadcast";
+      els.goLiveBtn.classList.add("is-live");
+    }
+    if (els.liveChip) els.liveChip.hidden = false;
+    if (bc.timerId) clearInterval(bc.timerId);
+    bc.timerId = setInterval(tickTimer, 1000);
+    tickTimer();
+    panelError("");
+  }
+
+  function onLiveStopped() {
+    bc.live = false;
+    bc.starting = false;
+    if (bc.timerId) { clearInterval(bc.timerId); bc.timerId = null; }
+    if (bc.confirmingEnd) { clearTimeout(bc.confirmingEnd); bc.confirmingEnd = null; }
+    if (els.liveChip) els.liveChip.hidden = true;
+    if (els.goLiveBtn) {
+      els.goLiveBtn.disabled = false;
+      els.goLiveBtn.textContent = "Go Live";
+      els.goLiveBtn.classList.remove("is-live");
+    }
+  }
+
+  function tickTimer() {
+    if (!els.liveTimer || !bc.startedAt) return;
+    var s = Math.floor((Date.now() - bc.startedAt) / 1000);
+    var h = Math.floor(s / 3600);
+    var m = Math.floor((s % 3600) / 60);
+    var sec = s % 60;
+    var mm = (m < 10 ? "0" : "") + m;
+    var ss = (sec < 10 ? "0" : "") + sec;
+    els.liveTimer.textContent = h > 0 ? h + ":" + mm + ":" + ss : mm + ":" + ss;
   }
 })();

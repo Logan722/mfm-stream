@@ -112,9 +112,26 @@ browser (laptop or phone). Two views of the same app:
 - Still to come on this board: bring-to-stage/spotlight & layouts (with Phase 3 composition),
   overlays, scripture, start/stop broadcast.
 
-### Broadcast & overlays (later phases)
-- Two layouts: **16:9 landscape** (YouTube/Facebook), **9:16 vertical** (Instagram).
-- Lower thirds, prayer points, scripture overlays.
+### Broadcast (Phase 3 ✅ — 16:9 primary)
+- Console **Broadcast panel**: YouTube + Facebook stream keys (saved in localStorage on the
+  host's device ONLY), optional custom RTMP destination, **Go Live / End** (two-tap),
+  LIVE badge + timer in the top bar.
+- All streams run on Daily's **VCS `custom` preset** so overlays (Phases 4–5) can be added
+  live without restarting the stream. 1920×1080.
+- **Layouts, switchable live:** Grid / Speaker (dominant) / Split / PiP.
+- **Feature (spotlight):** any participant can be locked full-screen on the stream
+  (`videoSettings.preferredParticipantIds` + mode `single`); auto-releases if they leave.
+- **Branding on stream:** name labels toggle, MFM logo watermark (`/img/logo.png` via
+  `session_assets`), optional program-title text overlay (Bitter font — closest bundled
+  VCS font to Fraunces; exact brand fonts need a custom VCS composition later).
+- **9:16 vertical (Instagram)** deferred to Phase 6: needs a second concurrent streaming
+  instance (`instanceId`), and `max_streaming_instances_per_room` must be raised by Daily
+  support. Each instance bills its own streaming minutes.
+- Endpoint templates: YouTube `rtmp://a.rtmp.youtube.com/live2/<key>`,
+  Facebook `rtmps://live-api-s.facebook.com:443/rtmp/<key>` (FB requires RTMPS).
+
+### Overlays (later phases)
+- Lower thirds, prayer points, scripture overlays — layered into the same VCS composition.
 - **Royal Flame branding:** navy `#142240`, gold `#c9952c`, fire `#e85d26`; Fraunces + Inter Tight.
 
 ### Bible / scripture
@@ -143,9 +160,10 @@ browser (laptop or phone). Two views of the same app:
 mfm-stream/
 ├── index.html                    Participant join page (Royal Flame, camera/mic preview)
 ├── host.html                     Host console — pre-join (HOST_KEY) + Prebuilt video + control board
-├── css/stream.css                Royal Flame design system (incl. console board styles)
+├── css/stream.css                Royal Flame design system (incl. console + broadcast styles)
+├── img/logo.png                  MFM emblem (stream watermark session asset, 400px)
 ├── js/join.js                    Participant join logic (Daily Prebuilt, themed)
-├── js/console.js                 Host console: join + participant board (mute/cam/co-host/eject)
+├── js/console.js                 Host console: board + broadcast (layouts, spotlight, Go Live)
 ├── netlify/functions/token.js    Creates private rooms + mints tokens (Daily REST)
 ├── netlify.toml                  /api/* → functions; publish "."
 └── MFM-STREAMING-APP-REFERENCE.md  This file
@@ -176,7 +194,8 @@ Rotate the PAT after each session.
 1. **Foundation room** — join link + multi-person interactive room. *Prove the core.* ✅
 2. **Host controls** — hybrid console: participant board, mute/cam/remove, co-hosts. ✅
    *(spotlight & layouts land with Phase 3 composition, where they affect what viewers see)*
-3. **Broadcast layouts** — 16:9 + 9:16 compositions, Royal Flame styling.
+3. **Broadcast layouts** — 16:9 composition, layouts, spotlight, branding. ✅
+   *(9:16 vertical moves to Phase 6 with the Instagram work — needs a 2nd streaming instance)*
 4. **Overlays & Bible** — lower thirds, prayer points, scripture overlay.
 5. **Multistream** — YouTube + Facebook; Instagram vertical secondary.
 6. **Hardening** — auth, scheduling, reliability, dry runs before any live use.
@@ -190,7 +209,7 @@ Rotate the PAT after each session.
 | 0 | Setup — repo, Netlify, Daily account + token function | ✅ July 2026 |
 | 1 | Foundation room (join + interactive room, Daily Prebuilt) | ✅ July 2026 |
 | 2 | Host / co-host controls (hybrid console: Prebuilt video + custom board) | ✅ July 2026 |
-| 3 | Broadcast compositions (16:9 + 9:16, Royal Flame) | ⬜ |
+| 3 | Broadcast composition — 16:9, layouts, spotlight, branding (9:16 → chat 6) | ✅ July 2026 |
 | 4 | Overlays — lower thirds + prayer points | ⬜ |
 | 5 | Bible / scripture integration | ⬜ |
 | 6 | Multistream (YT/FB + IG vertical) | ⬜ |
@@ -214,6 +233,9 @@ Rotate the PAT after each session.
 | Repo | Dedicated `mfm-stream` | Separate from the website; own deploy pipeline |
 | Console architecture (Phase 2) | Hybrid: Prebuilt video + custom board | Must-not-fail video stays on Daily's proven UI; custom video arrives with broadcast phase |
 | Co-host mechanism | Live grant of `canAdmin: ['participants']` | No rejoin needed; demotable; scoped to participant admin (not streaming) |
+| Broadcast composition | Always VCS `custom` preset | Overlays (Phases 4–5) layer in live; switching to native presets would drop them |
+| Stream keys | localStorage on host device only | Never server-side, never in repo; host pastes once, browser remembers |
+| Stream spotlight | `videoSettings.preferredParticipantIds` + mode `single` | Verified baseline param; auto-release when the person leaves |
 
 ## Open questions
 
