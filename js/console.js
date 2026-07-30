@@ -912,7 +912,9 @@
         featured ? "★ Featured" : "Feature",
         false,
         function () {
-          activeScene().spot = featured ? null : p.session_id;
+          var sc = activeScene();
+          sc.spot = featured ? null : p.session_id;
+          sc.slate = null; // featuring someone dismisses a slate
           applyScene();
           queueRender();
         }
@@ -1220,7 +1222,9 @@
     els.modes.addEventListener("click", function (e) {
       var btn = e.target.closest ? e.target.closest(".mode-btn") : null;
       if (!btn) return;
-      activeScene().mode = btn.getAttribute("data-mode") || "grid";
+      var sc = activeScene();
+      sc.mode = btn.getAttribute("data-mode") || "grid";
+      sc.slate = null; // choosing a layout dismisses a slate
       applyScene();
     });
   }
@@ -1696,7 +1700,9 @@
      ============================================================ */
 
   function setCard(card) {
-    activeScene().card = card;
+    var s = activeScene();
+    s.card = card;
+    s.slate = null; // pushing content always dismisses a slate (Dawn)
     applyScene();
   }
 
@@ -1749,7 +1755,7 @@
     if (ppIdx < 0) ppIdx = 0;
     setCard({
       kind: "prayer",
-      title: "Prayer Point " + (ppIdx + 1) + " of " + pts.length,
+      title: "PRAYER POINT", // just the header — no counting (Dawn)
       subtitle: pts[ppIdx],
     });
   }

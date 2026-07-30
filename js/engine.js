@@ -47,7 +47,7 @@
 
   var W = 1920, H = 1080, FPS = 30;
   var FADE = 0.22; // card fade seconds
-  var BUILD = "jul30-n5"; // shown in the console Engine panel — stale-engine detector
+  var BUILD = "jul30-n6"; // shown in the console Engine panel — stale-engine detector
 
   /* ---------- Royal Flame tokens ---------- */
   var C = {
@@ -1177,7 +1177,7 @@
     if (lines.length) {
       ty += 10;
       ctx.font = "400 27px " + SANS;
-      ctx.fillStyle = card.kind === "prayer" ? C.cream : C.subText;
+      ctx.fillStyle = card.kind === "prayer" ? "#F2F2F2" : "#A8A8A8";
       lines.forEach(function (l) { ctx.fillText(l, tx, ty); ty += subLH; });
     }
     ctx.restore();
@@ -1219,15 +1219,15 @@
   }
 
   var CARD = {
-    padX: 30, padY: 24, barW: 6, gap: 12, maxTextW: 660, subLH: 40,
-    titleFont: "650 40px " + SERIF,
-    subFont: "400 28px " + SANS,
+    padX: 8, padY: 4, barW: 0, gap: 10, maxTextW: 700, subLH: 40,
+    titleFont: "800 44px " + SANS,
+    subFont: "500 30px " + SANS,
     kickFont: "700 20px " + SANS,
   };
 
   /* Measure the card without drawing — labels use the rect to step aside. */
   function layoutCard(card) {
-    var kicker = card.kind === "scripture" ? "THE WORD" : "";
+    var kicker = "";
     // Prayer titles ("Prayer Point 3 of 12") act as their own kicker.
 
     ctx.font = CARD.titleFont;
@@ -1260,23 +1260,11 @@
     ctx.globalAlpha = a;
     ctx.translate(0, (1 - a) * 14); // gentle rise
 
-    ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-    ctx.shadowBlur = 38;
-    ctx.shadowOffsetY = 12;
-    roundRect(box.x, box.y, box.w, box.h, 10);
-    ctx.fillStyle = C.cardBg;
-    ctx.fill();
-    ctx.shadowColor = "transparent";
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetY = 0;
-
-    // Gold bar (clipped to the card's rounded corners)
-    ctx.save();
-    roundRect(box.x, box.y, box.w, box.h, 10);
-    ctx.clip();
-    ctx.fillStyle = C.gold;
-    ctx.fillRect(box.x, box.y, CARD.barW, box.h);
-    ctx.restore();
+    // Clean OBS-style lower third (Dawn, July 30): no box, no bar —
+    // white title / gray line, legibility from a soft shadow.
+    ctx.shadowColor = "rgba(0, 0, 0, 0.85)";
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetY = 2;
 
     var tx = box.x + CARD.barW + CARD.padX;
     var ty = box.y + CARD.padY;
@@ -1290,20 +1278,15 @@
     }
 
     ctx.font = CARD.titleFont;
-    ctx.fillStyle = card.kind === "prayer" ? C.fireLight : C.cream;
+    ctx.fillStyle = card.kind === "prayer" ? "#D54141" : "#F2F2F2";
     ctx.textBaseline = "top";
-    if (card.kind === "prayer") {
-      ctx.font = "700 24px " + SANS;
-      spacedTextLeft(card.title.toUpperCase(), tx, ty + 6, 2);
-    } else {
-      ctx.fillText(card.title, tx, ty, CARD.maxTextW);
-    }
-    ty += 48;
+    ctx.fillText(card.title, tx, ty, CARD.maxTextW);
+    ty += 52;
 
     if (box.lines.length) {
       ty += CARD.gap;
       ctx.font = CARD.subFont;
-      ctx.fillStyle = card.kind === "prayer" ? C.cream : C.subText;
+      ctx.fillStyle = card.kind === "prayer" ? "#F2F2F2" : "#A8A8A8";
       box.lines.forEach(function (l) {
         ctx.fillText(l, tx, ty);
         ty += CARD.subLH;
