@@ -104,7 +104,7 @@
             <p class="b-row-label">Broadcast &mdash; 16:9</p>
             <button type="button" class="primary fire b-golive" id="go-live">Go Live</button>
             <p class="error" id="bc-error" role="alert" hidden></p>
-            <p class="b-row-label">Layout on stream</p>
+            <p class="b-row-label">Layout</p>
             <div class="b-modes" id="bc-modes">
               <button type="button" class="p-btn mode-btn active" data-mode="grid">Grid</button>
               <button type="button" class="p-btn mode-btn" data-mode="dominant">Speaker</button>
@@ -139,15 +139,20 @@
             <p class="eng-status"><span class="eng-dot" id="eng-dot"></span> <span id="eng-status">Engine offline</span></p>
             <button type="button" class="p-btn" id="eng-open">Open engine page</button>
             <label class="b-check"><input type="checkbox" id="labels-on"> Name labels on the stream</label>
-            <p class="b-row-label">Slates</p>
+            <p class="b-row-label">Slates &mdash; fully editable</p>
             <div class="b-modes" id="slate-row">
               <button type="button" class="p-btn slate-btn active" data-slate="none">None</button>
               <button type="button" class="p-btn slate-btn" data-slate="soon">Starting soon</button>
               <button type="button" class="p-btn slate-btn" data-slate="brb">BRB</button>
               <button type="button" class="p-btn slate-btn" data-slate="end">Goodbye</button>
             </div>
+            <input type="text" id="slate-title" class="b-input mt6" maxlength="60"
+                   placeholder="Big line &mdash; anything you want">
             <input type="text" id="slate-line" class="b-input mt6" maxlength="90"
-                   placeholder="Optional line &mdash; e.g. Sunday Service &middot; 10:00 AM">
+                   placeholder="Small line &mdash; e.g. Healing &amp; Deliverance Hour &middot; 7PM CT">
+            <div class="b-modes mt6">
+              <button type="button" class="p-btn" id="slate-show">Show slate</button>
+            </div>
             <p class="error" id="eng-alert" role="alert" hidden></p>
             <p class="b-hint" id="eng-hint">The engine paints the broadcast &mdash; real brand fonts,
                boxed gold cards, instant switches &mdash; and Go Live locks the stream to it.
@@ -192,17 +197,25 @@
 
           <section class="deck-panel">
             <p class="b-row-label">Media &mdash; play a video</p>
-            <input type="text" id="md-url" class="b-input" autocomplete="off"
-                   placeholder="Option 1 &mdash; direct link (.mp4 or .m3u8)">
-            <div class="b-modes mt6">
-              <button type="button" class="p-btn" id="md-play">Play link</button>
+            <select id="md-src" class="b-input">
+              <option value="link">From a link (.mp4 / .m3u8)</option>
+              <option value="file">From this computer</option>
+            </select>
+            <div id="md-link-ui">
+              <input type="text" id="md-url" class="b-input mt6" autocomplete="off"
+                     placeholder="Direct video link (.mp4 or .m3u8)">
+              <div class="b-modes mt6">
+                <button type="button" class="p-btn" id="md-play">Play link</button>
+              </div>
+              <p class="b-sublabel">Link volume on the stream</p>
+              <input type="range" id="md-stream-vol" class="b-range" min="0" max="150" value="100">
             </div>
-            <p class="b-sublabel">Link volume on the stream</p>
-            <input type="range" id="md-stream-vol" class="b-range" min="0" max="150" value="100">
-            <button type="button" class="p-btn mt8" id="md-choose">Option 2 &mdash; a file on this computer&hellip;</button>
-            <input type="file" id="md-file" accept="video/*" hidden>
-            <p class="b-sublabel">File volume &mdash; the room and the stream hear this</p>
-            <input type="range" id="md-vol" class="b-range" min="0" max="100" value="90">
+            <div id="md-file-ui" hidden>
+              <button type="button" class="p-btn mt6" id="md-choose">Choose a video file&hellip;</button>
+              <input type="file" id="md-file" accept="video/*" hidden>
+              <p class="b-sublabel">File volume &mdash; the room and the stream hear this</p>
+              <input type="range" id="md-vol" class="b-range" min="0" max="100" value="90">
+            </div>
             <div class="b-modes mt8">
               <button type="button" class="p-btn" id="md-pause">Pause</button>
               <button type="button" class="p-btn danger" id="md-stop">Stop</button>

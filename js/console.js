@@ -102,6 +102,9 @@
     cutBtn: document.getElementById("cut-btn"),
     slateRow: document.getElementById("slate-row"),
     slateLine: document.getElementById("slate-line"),
+    slateTitle: document.getElementById("slate-title"),
+    slateShow: document.getElementById("slate-show"),
+    mdSrc: document.getElementById("md-src"),
     labelsOn: document.getElementById("labels-on"),
     masterVol: document.getElementById("master-vol"),
     mdStreamVol: document.getElementById("md-stream-vol"),
@@ -111,6 +114,8 @@
   var joinedRoom = "sanctuary";
   var renderQueued = false;
   var confirmingEject = {}; // session_id -> timeout handle
+  var personVol = {};       // session_id -> fader value (0-150), console-side memory
+  var volTimers = {};
 
   /* ---------- Program Engine (program.html) ---------- */
   // The engine joins as PROGRAM with this fixed user_id. When it's online,
@@ -972,6 +977,27 @@
       }
 
       li.appendChild(row);
+
+      // Audio mixer: this person's level in the BROADCAST mix (engine-side gain)
+      if (engineOnline()) {
+        var vol = document.createElement("input");
+        vol.type = "range";
+        vol.min = "0"; vol.max = "150";
+        vol.className = "b-range p-vol";
+        vol.value = personVol[p.session_id] != null ? personVol[p.session_id] : 100;
+        vol.title = "Volume on the stream mix (room hearing is unchanged)";
+        (function (sid) {
+          vol.addEventListener("input", function () {
+            personVol[sid] = Number(vol.value);
+            clearTimeout(volTimers[sid]);
+            volTimers[sid] = setTimeout(function () {
+              sendCmd({ cmd: "gain", source: "person", sid: sid, value: personVol[sid] / 100 });
+            }, 120);
+          });
+        })(p.session_id);
+        li.appendChild(vol);
+      }
+
       els.plist.appendChild(li);
     });
   }
@@ -1299,15 +1325,30 @@
   }
 
   /* ---------- Slates ---------- */
+  var SLATE_TEXTS = { soon: "WE'LL BEGIN SHORTLY", brb: "BE RIGHT BACK", end: "THANK YOU FOR JOINING US" };
+
+  function applySlate(title) {
+    title = String(title || "").trim().slice(0, 60);
+    activeScene().slate = title
+      ? { title: title, line: els.slateLine ? els.slateLine.value.trim().slice(0, 90) : "" }
+      : null;
+    applyScene();
+  }
+
   if (els.slateRow) {
     els.slateRow.addEventListener("click", function (e) {
       var btn = e.target.closest ? e.target.closest("[data-slate]") : null;
       if (!btn) return;
       var k = btn.getAttribute("data-slate");
-      activeScene().slate = k === "none"
-        ? null
-        : { kind: k, line: els.slateLine ? els.slateLine.value.trim().slice(0, 90) : "" };
-      applyScene();
+      if (k === "none") { applySlate(""); return; }
+      if (els.slateTitle) els.slateTitle.value = SLATE_TEXTS[k] || "";
+      applySlate(SLATE_TEXTS[k]);
+    });
+  }
+
+  if (els.slateShow) {
+    els.slateShow.addEventListener("click", function () {
+      applySlate(els.slateTitle ? els.slateTitle.value : "");
     });
   }
 
@@ -1623,9 +1664,10 @@
       });
     }
     if (els.slateRow) {
-      var slateKind = s.slate ? s.slate.kind : "none";
       Array.prototype.forEach.call(els.slateRow.querySelectorAll(".slate-btn"), function (b) {
-        b.classList.toggle("active", b.getAttribute("data-slate") === slateKind);
+        var k = b.getAttribute("data-slate");
+        b.classList.toggle("active",
+          k === "none" ? !s.slate : !!(s.slate && s.slate.title === SLATE_TEXTS[k]));
       });
     }
   }
@@ -1755,6 +1797,16 @@
     if (els.mdPlay) els.mdPlay.disabled = mode === "file";
   }
   mdButtons();
+
+  if (els.mdSrc) {
+    els.mdSrc.addEventListener("change", function () {
+      var file = els.mdSrc.value === "file";
+      var l = document.getElementById("md-link-ui");
+      var f = document.getElementById("md-file-ui");
+      if (l) l.hidden = file;
+      if (f) f.hidden = !file;
+    });
+  }
 
   /* ---------- Option 1: link ---------- */
   if (els.mdPlay) {

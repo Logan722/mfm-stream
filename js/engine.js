@@ -168,7 +168,9 @@
 
     var src = AG.ctx.createMediaStreamSource(stream);
     var gain = AG.ctx.createGain();
-    gain.gain.value = kind === "media" ? gains.media : 1;
+    gain.gain.value = kind === "media"
+      ? gains.media
+      : (personGains[sid] != null ? personGains[sid] : 1);
     var an = AG.ctx.createAnalyser();
     an.fftSize = 256;
     src.connect(gain);
@@ -189,6 +191,18 @@
     try { s.gain.disconnect(); } catch (e) { /* fine */ }
     try { s.el.srcObject = null; } catch (e) { /* fine */ }
     delete AG.sources[key];
+  }
+
+  var personGains = {}; // session_id -> gain (survives mute/unmute re-adds)
+
+  function setPersonGain(sid, value) {
+    var v = Math.max(0, Math.min(2, Number(value)));
+    if (isNaN(v)) return;
+    personGains[sid] = v;
+    var a = AG.sources[sid + ":a"];
+    if (a) a.gain.gain.value = v;
+    var sa = AG.sources[sid + ":sa"];
+    if (sa) sa.gain.gain.value = v;
   }
 
   function setGain(source, value) {
@@ -569,7 +583,8 @@
     } else if (d.cmd === "take") {
       if (studio.on && scenePreview) doTake(d.fx === "cut" ? "cut" : "fade");
     } else if (d.cmd === "gain") {
-      setGain(d.source, d.value);
+      if (d.source === "person" && d.sid) setPersonGain(d.sid, d.value);
+      else setGain(d.source, d.value);
     } else if (d.cmd === "rtmp") {
       // Cloud runner only: start/stop the VPS-side FFmpeg push. The bridge
       // function is exposed by runner.js; in a normal browser this is a no-op.
@@ -622,8 +637,10 @@
     out.spot = sc.spot && people[sc.spot] ? sc.spot : null;
     out.card = normalizeCard(sc.card);
     if (/^[tb][lcr]$/.test(sc.cardPos || "")) out.cardPos = sc.cardPos;
-    out.slate = sc.slate && SLATES[sc.slate.kind]
-      ? { kind: sc.slate.kind, line: String(sc.slate.line || "").slice(0, 90) }
+    var sl = sc.slate;
+    out.slate = sl && (sl.title || SLATES[sl.kind])
+      ? { title: String(sl.title || SLATES[sl.kind] || "").slice(0, 60),
+          line: String(sl.line || "").slice(0, 90) }
       : null;
     return out;
   }
@@ -685,12 +702,12 @@
       ffmpegVert: ffmpegVertState,
       vertical: VERTICAL,
       studio: studio.on,
-      slate: scene.slate ? scene.slate.kind : null,
+      slate: scene.slate ? "on" : null,
       preview: studio.on && scenePreview ? {
         mode: scenePreview.mode,
         spot: scenePreview.spot,
         card: scenePreview.card ? scenePreview.card.kind : null,
-        slate: scenePreview.slate ? scenePreview.slate.kind : null,
+        slate: scenePreview.slate ? "on" : null,
       } : null,
     };
   }
@@ -1008,20 +1025,23 @@
 
     ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";
-    ctx.fillStyle = C.gold;
-    ctx.font = "800 150px " + SERIF;
-    ctx.fillText("MFM", W / 2, H / 2 - 60);
-    ctx.fillStyle = C.cream;
-    ctx.font = "600 34px " + SANS;
-    spacedText("MEGA REGION 2 · USA", W / 2, H / 2 + 20, 10);
+    if (!slate) {
+      ctx.fillStyle = C.gold;
+      ctx.font = "800 150px " + SERIF;
+      ctx.fillText("MFM", W / 2, H / 2 - 60);
+      ctx.fillStyle = C.cream;
+      ctx.font = "600 34px " + SANS;
+      spacedText("MEGA REGION 2 · USA", W / 2, H / 2 + 20, 10);
+    }
     if (slate) {
-      ctx.fillStyle = C.goldLight;
-      ctx.font = "600 44px " + SANS;
-      spacedText(SLATES[slate.kind] || "", W / 2, H / 2 + 126, 8);
+      // Fully editable — NO forced branding (Dawn runs multiple programs)
+      ctx.fillStyle = C.cream;
+      ctx.font = "650 76px " + SERIF;
+      ctx.fillText(slate.title || "", W / 2, H / 2 - 4, W - 200);
       if (slate.line) {
         ctx.fillStyle = C.dim;
-        ctx.font = "italic 400 30px " + SERIF;
-        ctx.fillText(slate.line, W / 2, H / 2 + 190);
+        ctx.font = "italic 400 34px " + SERIF;
+        ctx.fillText(slate.line, W / 2, H / 2 + 74, W - 240);
       }
     } else {
       ctx.fillStyle = C.dim;
@@ -1087,16 +1107,22 @@
     ctx.fillRect(0, 0, PW, PH);
     ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";
-    ctx.fillStyle = C.gold;
-    ctx.font = "800 130px " + SERIF;
-    ctx.fillText("MFM", PW / 2, PH / 2 - 70);
-    ctx.fillStyle = C.cream;
-    ctx.font = "600 26px " + SANS;
-    spacedText("MEGA REGION 2 · USA", PW / 2, PH / 2, 7);
     if (slate) {
-      ctx.fillStyle = C.goldLight;
-      ctx.font = "600 34px " + SANS;
-      spacedText(SLATES[slate.kind] || "", PW / 2, PH / 2 + 96, 5);
+      ctx.fillStyle = C.cream;
+      ctx.font = "650 52px " + SERIF;
+      ctx.fillText(slate.title || "", PW / 2, PH / 2 - 10, PW - 100);
+      if (slate.line) {
+        ctx.fillStyle = C.dim;
+        ctx.font = "italic 400 30px " + SERIF;
+        ctx.fillText(slate.line, PW / 2, PH / 2 + 56, PW - 120);
+      }
+    } else {
+      ctx.fillStyle = C.gold;
+      ctx.font = "800 130px " + SERIF;
+      ctx.fillText("MFM", PW / 2, PH / 2 - 70);
+      ctx.fillStyle = C.cream;
+      ctx.font = "600 26px " + SANS;
+      spacedText("MEGA REGION 2 · USA", PW / 2, PH / 2, 7);
     }
     ctx.textAlign = "left";
   }

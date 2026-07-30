@@ -908,6 +908,8 @@ body.capture-wide #portrait-canvas {
   cursor: pointer;
 }
 
+.p-vol { margin-top: 9px; }
+
 /* Studio monitors (OBS-style) — shown while studio mode is on */
 .monitors {
   display: none;

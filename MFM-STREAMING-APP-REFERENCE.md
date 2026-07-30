@@ -401,6 +401,24 @@ the broadcast ourselves** (hybrid): we paint every pixel; Daily keeps doing tran
   fade-to-black, hide PROGRAM presence test, phone-rotation guidance (engine already
   adapts to rotated tracks live; rotation lock is the usual culprit).
 
+### Field round 3 (July 30, night)
+- **Audio mixer v1**: a gold fader on EVERY People row — that person's level in the
+  broadcast mix (engine `gain {source:"person", sid}`; gain remembered across
+  mute/unmute). Room hearing unchanged. Fader values live on the console device.
+- **Media panel grouped**: dropdown "From a link / From this computer" shows only the
+  chosen option's controls.
+- **Slates fully editable**: big line + small line are free text (60/90 chars); preset
+  buttons just fill the big line; NO forced MFM branding on custom slates (Dawn runs
+  multiple programs); brand appears only on the default empty-room slate. Slate format
+  is now {title, line} (kind accepted for back-compat).
+- "Layout on stream" renamed "Layout" — in studio mode it stages to PREVIEW then TAKEs,
+  which is the intended answer to "layout should show on preview".
+- Labels toggle NOTE: needs the VPS engine restarted after deploy, and in studio mode
+  the change waits on TAKE like everything else.
+- Still queued: vertical (9:16) monitor pane (needs engine custom-track publish +
+  monitor subscription — test carefully), PROGRAM presence hiding, master
+  compressor/limiter, saved scenes, image fliers, fade-to-black.
+
 ### Engine build phases (new chats)
 | Chat | Scope | Status |
 |------|-------|--------|
