@@ -96,8 +96,23 @@ exports.handler = async (event) => {
       out.steps.push({ step: "access-link", status: al.status, body: al.data });
     }
 
+  } else if (action === "set-legacy" || action === "unset-legacy") {
+    // Domain-level change — host key required (never the investigation key)
+    if (!hostOk) return json(403, { error: "Host key required for domain actions." });
+    const want = action === "set-legacy";
+    const res = await daily(apiKey, "POST", "/", {
+      properties: { enable_legacy_compositor: want },
+    });
+    out.steps.push({ step: action, status: res.status, body: redact(res.data) });
+    const check = await daily(apiKey, "GET", "/");
+    out.steps.push({
+      step: "verify",
+      enable_legacy_compositor: check.data && check.data.config &&
+        check.data.config.enable_legacy_compositor,
+    });
+
   } else {
-    out.steps.push({ step: "unknown-action", note: "use action=config|layout-test|rec-start|rec-stop|rec-link" });
+    out.steps.push({ step: "unknown-action", note: "use action=config|layout-test|rec-start|rec-stop|rec-link|set-legacy" });
   }
 
   return json(200, out);
