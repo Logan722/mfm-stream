@@ -1199,6 +1199,17 @@
     if (els.takeBtn) els.takeBtn.hidden = !studio.on;
     if (els.cutBtn) els.cutBtn.hidden = !studio.on;
     document.body.classList.toggle("studio-open", studio.on);
+    // TAKE/CUT live BETWEEN the monitors (OBS-style) while studio is on
+    var mc = document.getElementById("mon-controls");
+    if (mc && els.takeBtn && els.cutBtn) {
+      if (studio.on) {
+        mc.appendChild(els.takeBtn);
+        mc.appendChild(els.cutBtn);
+      } else if (els.studioToggle && els.studioToggle.parentNode) {
+        els.studioToggle.parentNode.insertBefore(els.takeBtn, els.studioToggle);
+        els.studioToggle.parentNode.insertBefore(els.cutBtn, els.studioToggle);
+      }
+    }
     if (studio.on) startMonitor(); else stopMonitor();
   }
 
@@ -1590,27 +1601,9 @@
 
   function renderScene() {
     var s = activeScene();
-    if (els.frameGuide) {
-      if (s.card) {
-        els.frameGuide.hidden = false;
-        els.lcTitle.textContent = s.card.title;
-        els.lcSub.textContent = s.card.subtitle || "";
-        els.lcSub.hidden = !s.card.subtitle;
-        positionPreviewCard();
-      } else {
-        els.frameGuide.hidden = true;
-      }
-      if (els.pvTag) {
-        var onAir = bc.live || cs.running;
-        if (studio.on) {
-          els.pvTag.textContent = "PREVIEW — TAKE to air";
-          els.pvTag.className = "pv-tag is-preview";
-        } else {
-          els.pvTag.textContent = onAir ? "LIVE" : "ONLY YOU SEE THIS";
-          els.pvTag.className = "pv-tag" + (onAir ? " is-live" : "");
-        }
-      }
-    }
+    // The floating WYSIWYG card is retired (Dawn, July 30): the real feed is
+    // visible in the PROGRAM tile and the studio monitors — no duplicates.
+    if (els.frameGuide) els.frameGuide.hidden = true;
     setActiveModeButton(s.mode);
     if (els.cardPosRow) {
       Array.prototype.forEach.call(els.cardPosRow.querySelectorAll(".pos-btn"), function (b) {
