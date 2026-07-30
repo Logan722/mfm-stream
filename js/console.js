@@ -50,10 +50,23 @@
     customUrl: document.getElementById("custom-url"),
     modes: document.getElementById("bc-modes"),
     labelsOn: document.getElementById("labels-on"),
-    logoOn: document.getElementById("logo-on"),
     titleText: document.getElementById("title-text"),
     goLiveBtn: document.getElementById("go-live"),
     bcError: document.getElementById("bc-error"),
+    // Overlays panel
+    ovToggle: document.getElementById("ov-toggle"),
+    ovCaret: document.getElementById("ov-caret"),
+    ovBody: document.getElementById("ov-body"),
+    ovStatus: document.getElementById("ov-status"),
+    l3Name: document.getElementById("l3-name"),
+    l3Role: document.getElementById("l3-role"),
+    l3Show: document.getElementById("l3-show"),
+    l3Hide: document.getElementById("l3-hide"),
+    ppList: document.getElementById("pp-list"),
+    ppPrev: document.getElementById("pp-prev"),
+    ppPush: document.getElementById("pp-push"),
+    ppNext: document.getElementById("pp-next"),
+    ppHide: document.getElementById("pp-hide"),
   };
 
   var callFrame = null;
@@ -70,6 +83,13 @@
     mode: "grid",          // grid | dominant | split | pip
     spotlightId: null,     // session_id featured full-screen
     confirmingEnd: null,   // timeout handle for two-tap end
+  };
+
+  /* Overlay card state — one card slot shared by lower thirds,
+     prayer points, and (Phase 5) scripture. */
+  var ov = {
+    banner: null,          // null | { kind, title, subtitle }
+    ppIdx: 0,              // current prayer point index
   };
 
   /* ---------- Room name ---------- */
@@ -481,7 +501,6 @@
     if (els.customOn && "customOn" in bcSaved) els.customOn.checked = !!bcSaved.customOn;
     if (els.customUrl && bcSaved.customUrl) els.customUrl.value = bcSaved.customUrl;
     if (els.labelsOn && "labels" in bcSaved) els.labelsOn.checked = !!bcSaved.labels;
-    if (els.logoOn && "logo" in bcSaved) els.logoOn.checked = !!bcSaved.logo;
     if (els.titleText && bcSaved.title) els.titleText.value = bcSaved.title;
     if (bcSaved.mode) { bc.mode = bcSaved.mode; setActiveModeButton(bc.mode); }
   } catch (e) { /* fine */ }
@@ -496,19 +515,18 @@
         customOn: els.customOn ? els.customOn.checked : false,
         customUrl: els.customUrl ? els.customUrl.value : "",
         labels: els.labelsOn ? els.labelsOn.checked : true,
-        logo: els.logoOn ? els.logoOn.checked : true,
         title: els.titleText ? els.titleText.value : "",
         mode: bc.mode,
       }));
     } catch (e) { /* fine */ }
   }
 
-  ["ytOn", "ytKey", "fbOn", "fbKey", "customOn", "customUrl", "labelsOn", "logoOn", "titleText"]
+  ["ytOn", "ytKey", "fbOn", "fbKey", "customOn", "customUrl", "labelsOn", "titleText"]
     .forEach(function (k) {
       if (els[k]) els[k].addEventListener("change", function () {
         bcRemember();
         // Branding changes apply live without restarting the stream
-        if (bc.live && (k === "labelsOn" || k === "logoOn" || k === "titleText")) pushLayout();
+        if (bc.live && (k === "labelsOn" || k === "titleText")) pushLayout();
       });
     });
 
@@ -574,26 +592,27 @@
       params["videoSettings.preferredParticipantIds"] = bc.spotlightId;
     }
 
+    // Program title — small, bottom-right, out of the card's way
     var title = els.titleText ? els.titleText.value.trim().slice(0, 60) : "";
     params.showTextOverlay = !!title;
     if (title) {
       params["text.content"] = title;
-      params["text.align_horizontal"] = "left";
+      params["text.align_horizontal"] = "right";
       params["text.align_vertical"] = "bottom";
-      params["text.offset_x"] = 24;
+      params["text.offset_x"] = -24;
       params["text.fontFamily"] = "Bitter";
       params["text.color"] = "rgba(240, 230, 208, 0.96)";
     }
 
-    var logo = !!(els.logoOn && els.logoOn.checked);
-    params.showImageOverlay = logo;
-    if (logo) {
-      params["image.assetName"] = "logo";
-      params["image.position"] = "bottom-right";
-      params["image.aspectRatio"] = 1.105; // 400x362 emblem
-      params["image.height_vh"] = 0.13;
-      params["image.margin_vh"] = 0.02;
-      params["image.opacity"] = 0.9;
+    // Overlay card (lower third / prayer point / scripture) — bottom-left
+    params.showBannerOverlay = !!ov.banner;
+    if (ov.banner) {
+      params["banner.title"] = ov.banner.title;
+      params["banner.subtitle"] = ov.banner.subtitle || "";
+      params["banner.position"] = "bottom-left";
+      params["banner.enableTransition"] = true;
+      params["banner.maxW_pct_default"] = 0.65;
+      params["banner.showIcon"] = false;
     }
 
     return params;
@@ -625,9 +644,6 @@
           layout: {
             preset: "custom",
             composition_params: compositionParams(),
-            session_assets: {
-              "images/logo": window.location.origin + "/img/logo.png",
-            },
           },
         });
       } catch (err) {
@@ -679,6 +695,7 @@
     bc.timerId = setInterval(tickTimer, 1000);
     tickTimer();
     panelError("");
+    updateOvStatus();
   }
 
   function onLiveStopped() {
@@ -692,6 +709,7 @@
       els.goLiveBtn.textContent = "Go Live";
       els.goLiveBtn.classList.remove("is-live");
     }
+    updateOvStatus();
   }
 
   function tickTimer() {
@@ -704,4 +722,131 @@
     var ss = (sec < 10 ? "0" : "") + sec;
     els.liveTimer.textContent = h > 0 ? h + ":" + mm + ":" + ss : mm + ":" + ss;
   }
+
+  /* ============================================================
+     Overlays (Phase 4) — lower thirds & prayer points
+     One card slot on the stream (bottom-left); the three
+     producers (lower third, prayer points, scripture in Phase 5)
+     replace each other.
+     ============================================================ */
+
+  var ovStoreKey = "mfm-stream-overlays";
+
+  try {
+    var ovSaved = JSON.parse(localStorage.getItem(ovStoreKey) || "{}");
+    if (els.l3Name && ovSaved.l3name) els.l3Name.value = ovSaved.l3name;
+    if (els.l3Role && ovSaved.l3role) els.l3Role.value = ovSaved.l3role;
+    if (els.ppList && ovSaved.points) els.ppList.value = ovSaved.points;
+    if (typeof ovSaved.ppIdx === "number") ov.ppIdx = ovSaved.ppIdx;
+  } catch (e) { /* fine */ }
+
+  function ovRemember() {
+    try {
+      localStorage.setItem(ovStoreKey, JSON.stringify({
+        l3name: els.l3Name ? els.l3Name.value : "",
+        l3role: els.l3Role ? els.l3Role.value : "",
+        points: els.ppList ? els.ppList.value : "",
+        ppIdx: ov.ppIdx,
+      }));
+    } catch (e) { /* fine */ }
+  }
+
+  ["l3Name", "l3Role", "ppList"].forEach(function (k) {
+    if (els[k]) els[k].addEventListener("change", ovRemember);
+  });
+
+  /* Collapse/expand — same pattern as the broadcast section */
+  if (els.ovToggle && els.ovBody) {
+    els.ovToggle.addEventListener("click", function () {
+      var hidden = els.ovBody.style.display === "none";
+      els.ovBody.style.display = hidden ? "" : "none";
+      if (els.ovCaret) els.ovCaret.textContent = hidden ? "▾" : "▸";
+      els.ovToggle.setAttribute("aria-expanded", hidden ? "true" : "false");
+    });
+  }
+
+  function ppPoints() {
+    if (!els.ppList) return [];
+    return els.ppList.value
+      .split("\n")
+      .map(function (s) { return s.trim(); })
+      .filter(Boolean);
+  }
+
+  function setCard(card) {
+    ov.banner = card;
+    ovRemember();
+    updateOvStatus();
+    if (bc.live) pushLayout();
+  }
+
+  function updateOvStatus() {
+    if (!els.ovStatus) return;
+    if (!ov.banner) {
+      els.ovStatus.textContent = bc.live ? "Nothing on stream." : "Nothing queued. Cards appear once you're live.";
+    } else {
+      var what = ov.banner.kind === "prayer" ? ov.banner.title
+               : "Lower third — " + ov.banner.title;
+      els.ovStatus.textContent = (bc.live ? "On stream: " : "Queued for stream: ") + what;
+    }
+    if (els.l3Show) {
+      els.l3Show.textContent = (ov.banner && ov.banner.kind === "l3") ? "On ✓ (update)" : "Show";
+    }
+  }
+
+  /* ---------- Lower third ---------- */
+  if (els.l3Show) {
+    els.l3Show.addEventListener("click", function () {
+      var name = els.l3Name ? els.l3Name.value.trim().slice(0, 48) : "";
+      if (!name) { els.l3Name && els.l3Name.focus(); return; }
+      var role = els.l3Role ? els.l3Role.value.trim().slice(0, 60) : "";
+      setCard({ kind: "l3", title: name, subtitle: role });
+    });
+  }
+  if (els.l3Hide) {
+    els.l3Hide.addEventListener("click", function () {
+      if (ov.banner && ov.banner.kind === "l3") setCard(null);
+    });
+  }
+
+  /* ---------- Prayer points ---------- */
+  function pushPoint() {
+    var pts = ppPoints();
+    if (!pts.length) { els.ppList && els.ppList.focus(); return; }
+    if (ov.ppIdx >= pts.length) ov.ppIdx = pts.length - 1;
+    if (ov.ppIdx < 0) ov.ppIdx = 0;
+    setCard({
+      kind: "prayer",
+      title: "Prayer Point " + (ov.ppIdx + 1) + " of " + pts.length,
+      subtitle: pts[ov.ppIdx],
+    });
+  }
+
+  if (els.ppPush) els.ppPush.addEventListener("click", pushPoint);
+
+  if (els.ppNext) {
+    els.ppNext.addEventListener("click", function () {
+      var n = ppPoints().length;
+      if (!n) return;
+      ov.ppIdx = Math.min(ov.ppIdx + 1, n - 1);
+      pushPoint();
+    });
+  }
+
+  if (els.ppPrev) {
+    els.ppPrev.addEventListener("click", function () {
+      var n = ppPoints().length;
+      if (!n) return;
+      ov.ppIdx = Math.max(ov.ppIdx - 1, 0);
+      pushPoint();
+    });
+  }
+
+  if (els.ppHide) {
+    els.ppHide.addEventListener("click", function () {
+      if (ov.banner && ov.banner.kind === "prayer") setCard(null);
+    });
+  }
+
+  updateOvStatus();
 })();

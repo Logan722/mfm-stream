@@ -121,17 +121,24 @@ browser (laptop or phone). Two views of the same app:
 - **Layouts, switchable live:** Grid / Speaker (dominant) / Split / PiP.
 - **Feature (spotlight):** any participant can be locked full-screen on the stream
   (`videoSettings.preferredParticipantIds` + mode `single`); auto-releases if they leave.
-- **Branding on stream:** name labels toggle, MFM logo watermark (`/img/logo.png` via
-  `session_assets`), optional program-title text overlay (Bitter font — closest bundled
-  VCS font to Fraunces; exact brand fonts need a custom VCS composition later).
+- **Branding on stream:** name labels toggle, optional program-title text overlay
+  (bottom-right; Bitter font — closest bundled VCS font to Fraunces; exact brand fonts
+  need a custom VCS composition later). *Logo watermark was built, then removed at
+  Dawn's request (July 2026) — re-add via `showImageOverlay` + `session_assets` if wanted.*
 - **9:16 vertical (Instagram)** deferred to Phase 6: needs a second concurrent streaming
   instance (`instanceId`), and `max_streaming_instances_per_room` must be raised by Daily
   support. Each instance bills its own streaming minutes.
 - Endpoint templates: YouTube `rtmp://a.rtmp.youtube.com/live2/<key>`,
   Facebook `rtmps://live-api-s.facebook.com:443/rtmp/<key>` (FB requires RTMPS).
 
-### Overlays (later phases)
-- Lower thirds, prayer points, scripture overlays — layered into the same VCS composition.
+### Overlays (Phase 4 ✅ — lower thirds & prayer points)
+- **One card slot** on the stream (VCS banner overlay, bottom-left, fade transition);
+  three producers replace each other in it: lower third, prayer point, scripture (Phase 5).
+- **Lower third:** name + line-2 inputs on the board → `banner.title` / `banner.subtitle`.
+- **Prayer points:** textarea (one point per line, saved on the host's device),
+  **Prev / Push / Next / Hide** — card shows "Prayer Point n of m" + the point text.
+  Next/Prev push immediately (run the points live, one tap per point).
+- Cards can be queued before going live; they appear when the stream starts.
 - **Royal Flame branding:** navy `#142240`, gold `#c9952c`, fire `#e85d26`; Fraunces + Inter Tight.
 
 ### Bible / scripture
@@ -161,9 +168,8 @@ mfm-stream/
 ├── index.html                    Participant join page (Royal Flame, camera/mic preview)
 ├── host.html                     Host console — pre-join (HOST_KEY) + Prebuilt video + control board
 ├── css/stream.css                Royal Flame design system (incl. console + broadcast styles)
-├── img/logo.png                  MFM emblem (stream watermark session asset, 400px)
 ├── js/join.js                    Participant join logic (Daily Prebuilt, themed)
-├── js/console.js                 Host console: board + broadcast (layouts, spotlight, Go Live)
+├── js/console.js                 Host console: board, broadcast, overlays (lower thirds, prayer points)
 ├── netlify/functions/token.js    Creates private rooms + mints tokens (Daily REST)
 ├── netlify.toml                  /api/* → functions; publish "."
 └── MFM-STREAMING-APP-REFERENCE.md  This file
@@ -196,7 +202,7 @@ Rotate the PAT after each session.
    *(spotlight & layouts land with Phase 3 composition, where they affect what viewers see)*
 3. **Broadcast layouts** — 16:9 composition, layouts, spotlight, branding. ✅
    *(9:16 vertical moves to Phase 6 with the Instagram work — needs a 2nd streaming instance)*
-4. **Overlays & Bible** — lower thirds, prayer points, scripture overlay.
+4. **Overlays** — lower thirds + prayer points on the board. ✅ *(scripture next)*
 5. **Multistream** — YouTube + Facebook; Instagram vertical secondary.
 6. **Hardening** — auth, scheduling, reliability, dry runs before any live use.
 
@@ -210,7 +216,7 @@ Rotate the PAT after each session.
 | 1 | Foundation room (join + interactive room, Daily Prebuilt) | ✅ July 2026 |
 | 2 | Host / co-host controls (hybrid console: Prebuilt video + custom board) | ✅ July 2026 |
 | 3 | Broadcast composition — 16:9, layouts, spotlight, branding (9:16 → chat 6) | ✅ July 2026 |
-| 4 | Overlays — lower thirds + prayer points | ⬜ |
+| 4 | Overlays — lower thirds + prayer points (shared banner card slot) | ✅ July 2026 |
 | 5 | Bible / scripture integration | ⬜ |
 | 6 | Multistream (YT/FB + IG vertical) | ⬜ |
 | 7 | Auth, scheduling, hardening, dry runs | ⬜ |

@@ -113,12 +113,41 @@
 
             <div class="b-row-label">Branding</div>
             <label class="b-check"><input type="checkbox" id="labels-on" checked> Name labels on stream</label>
-            <label class="b-check"><input type="checkbox" id="logo-on" checked> MFM logo watermark</label>
             <input type="text" id="title-text" class="b-input" maxlength="60"
-                   placeholder="Program title (optional, bottom-left)">
+                   placeholder="Program title (optional, bottom-right)">
 
             <button type="button" class="primary fire b-golive" id="go-live">Go Live</button>
             <p class="error" id="bc-error" role="alert" hidden></p>
+          </div>
+        </section>
+
+        <!-- Overlays (Phase 4) -->
+        <section class="b-section">
+          <button type="button" class="b-sec-head" id="ov-toggle" aria-expanded="true">
+            <span>Overlays</span><span class="b-caret" id="ov-caret">&#9662;</span>
+          </button>
+          <div class="b-sec-body" id="ov-body">
+            <div class="b-row-label">Lower third</div>
+            <input type="text" id="l3-name" class="b-input" maxlength="48"
+                   placeholder="Name &mdash; e.g. Pastor Olumide Oni">
+            <input type="text" id="l3-role" class="b-input mt6" maxlength="60"
+                   placeholder="Line 2 &mdash; e.g. Principal Regional Overseer">
+            <div class="b-modes mt8">
+              <button type="button" class="p-btn" id="l3-show">Show</button>
+              <button type="button" class="p-btn" id="l3-hide">Hide</button>
+            </div>
+
+            <div class="b-row-label">Prayer points</div>
+            <textarea id="pp-list" class="b-input b-textarea" rows="5"
+                      placeholder="One prayer point per line&hellip;&#10;Every power assigned against my breakthrough, scatter, in the name of Jesus."></textarea>
+            <div class="b-modes mt8">
+              <button type="button" class="p-btn" id="pp-prev">&#9664; Prev</button>
+              <button type="button" class="p-btn" id="pp-push">Push</button>
+              <button type="button" class="p-btn" id="pp-next">Next &#9654;</button>
+              <button type="button" class="p-btn" id="pp-hide">Hide</button>
+            </div>
+            <p class="b-hint" id="ov-status">Nothing on stream.</p>
+            <p class="b-hint">One card shows at a time &mdash; pushing a prayer point replaces the lower third, and vice-versa. Cards appear once you&rsquo;re live.</p>
           </div>
         </section>
 
@@ -126,7 +155,6 @@
 
         <div class="board-coming">
           <p class="coming-title">Coming to this board</p>
-          <p class="coming-item">Lower thirds &amp; prayer points · Phase 4</p>
           <p class="coming-item">KJV scripture overlays · Phase 5</p>
           <p class="coming-item">Instagram 9:16 vertical · Phase 6</p>
         </div>

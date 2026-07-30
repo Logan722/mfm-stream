@@ -613,6 +613,15 @@ body.in-call .site-foot { display: none; }
 
 .b-modes { display: flex; flex-wrap: wrap; gap: 6px; }
 
+.mt6 { margin-top: 6px; }
+.mt8 { margin-top: 8px; }
+
+.b-textarea {
+  resize: vertical;
+  min-height: 96px;
+  line-height: 1.55;
+}
+
 .mode-btn.active {
   background: var(--gold);
   color: var(--bg-navy-deep);
