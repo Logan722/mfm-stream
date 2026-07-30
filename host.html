@@ -77,14 +77,25 @@
       <div class="console-main">
         <div class="stage" id="stage"></div>
 
-        <!-- Program monitor: what the broadcast is showing (never covers the video) -->
-        <div class="monitor" id="monitor" hidden>
-          <span class="pv-tag" id="pv-tag">PREVIEW</span>
-          <div class="mon-text">
-            <p class="pv-title" id="pv-title"></p>
-            <p class="pv-sub" id="pv-sub"></p>
+        <!-- Program monitor: preview / TAKE / program, like an OBS studio row -->
+        <div class="monitor" id="monitor">
+          <div class="mon-seg seg-preview" id="prev-seg" hidden>
+            <span class="pv-tag">PREVIEW</span>
+            <div class="mon-text">
+              <p class="pv-title" id="prev-title">Nothing staged</p>
+              <p class="pv-sub" id="prev-sub" hidden></p>
+            </div>
           </div>
-          <span class="pv-program" id="pv-program" hidden></span>
+          <button type="button" class="take-btn" id="take-btn" hidden>TAKE &#9654;</button>
+          <div class="mon-seg seg-program">
+            <span class="pv-tag" id="pv-tag">OFF AIR</span>
+            <div class="mon-text">
+              <p class="pv-title" id="pv-title">No card on stream</p>
+              <p class="pv-sub" id="pv-sub" hidden></p>
+            </div>
+            <button type="button" class="p-btn" id="prog-clear" hidden>Clear</button>
+          </div>
+          <button type="button" class="bar-btn" id="studio-toggle">Studio: Off</button>
         </div>
 
         <!-- Production deck -->
@@ -111,10 +122,6 @@
             <label class="b-check"><input type="checkbox" id="custom-on"> Custom RTMP</label>
             <input type="text" id="custom-url" class="b-input" autocomplete="off"
                    placeholder="rtmp://server/app/streamkey">
-            <p class="b-row-label">Branding</p>
-            <label class="b-check"><input type="checkbox" id="labels-on" checked> Name labels</label>
-            <input type="text" id="title-text" class="b-input" maxlength="60"
-                   placeholder="Program title (bottom-right)">
             <p class="b-hint">Keys stay on this device only. Overlays appear on the broadcast; the monitor bar below the video shows what viewers see.</p>
           </section>
 

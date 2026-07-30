@@ -48,16 +48,19 @@
     customOn: document.getElementById("custom-on"),
     customUrl: document.getElementById("custom-url"),
     modes: document.getElementById("bc-modes"),
-    labelsOn: document.getElementById("labels-on"),
-    titleText: document.getElementById("title-text"),
     goLiveBtn: document.getElementById("go-live"),
     bcError: document.getElementById("bc-error"),
-    // Program monitor
+    // Program monitor (studio row)
     monitor: document.getElementById("monitor"),
+    prevSeg: document.getElementById("prev-seg"),
+    prevTitle: document.getElementById("prev-title"),
+    prevSub: document.getElementById("prev-sub"),
+    takeBtn: document.getElementById("take-btn"),
     pvTag: document.getElementById("pv-tag"),
     pvTitle: document.getElementById("pv-title"),
     pvSub: document.getElementById("pv-sub"),
-    pvProgram: document.getElementById("pv-program"),
+    progClear: document.getElementById("prog-clear"),
+    studioToggle: document.getElementById("studio-toggle"),
     // Overlays
     l3Name: document.getElementById("l3-name"),
     l3Role: document.getElementById("l3-role"),
@@ -92,10 +95,13 @@
     confirmingEnd: null,   // timeout handle for two-tap end
   };
 
-  /* Overlay card state — one card slot shared by lower thirds,
-     prayer points, and (Phase 5) scripture. */
+  /* Overlay card pipeline — OBS-style studio row.
+     program = what the broadcast composition shows.
+     preview = staged card (studio mode only) waiting for TAKE. */
   var ov = {
-    banner: null,          // null | { kind, title, subtitle }
+    program: null,         // null | { kind, title, subtitle }
+    preview: null,         // null | { kind, title, subtitle }
+    studio: false,         // studio mode on/off
     ppIdx: 0,              // current prayer point index
   };
 
@@ -511,8 +517,7 @@
     if (els.fbKey && bcSaved.fbKey) els.fbKey.value = bcSaved.fbKey;
     if (els.customOn && "customOn" in bcSaved) els.customOn.checked = !!bcSaved.customOn;
     if (els.customUrl && bcSaved.customUrl) els.customUrl.value = bcSaved.customUrl;
-    if (els.labelsOn && "labels" in bcSaved) els.labelsOn.checked = !!bcSaved.labels;
-    if (els.titleText && bcSaved.title) els.titleText.value = bcSaved.title;
+    if ("studio" in bcSaved) ov.studio = !!bcSaved.studio;
     if (bcSaved.mode) { bc.mode = bcSaved.mode; setActiveModeButton(bc.mode); }
   } catch (e) { /* fine */ }
 
@@ -525,24 +530,16 @@
         fbKey: els.fbKey ? els.fbKey.value : "",
         customOn: els.customOn ? els.customOn.checked : false,
         customUrl: els.customUrl ? els.customUrl.value : "",
-        labels: els.labelsOn ? els.labelsOn.checked : true,
-        title: els.titleText ? els.titleText.value : "",
+        studio: ov.studio,
         mode: bc.mode,
       }));
     } catch (e) { /* fine */ }
   }
 
-  ["ytOn", "ytKey", "fbOn", "fbKey", "customOn", "customUrl", "labelsOn", "titleText"]
+  ["ytOn", "ytKey", "fbOn", "fbKey", "customOn", "customUrl"]
     .forEach(function (k) {
-      if (els[k]) els[k].addEventListener("change", function () {
-        bcRemember();
-        // Branding changes apply live without restarting the stream
-        if (bc.live && (k === "labelsOn" || k === "titleText")) pushLayout();
-        if (k === "titleText") updateOvStatus();
-      });
+      if (els[k]) els[k].addEventListener("change", bcRemember);
     });
-
-  if (els.titleText) els.titleText.addEventListener("input", function () { updateOvStatus(); });
 
   /* ---------- Deck show/hide (more room for video when needed) ---------- */
   if (els.deckToggle) {
@@ -596,7 +593,7 @@
   function compositionParams() {
     var params = {
       mode: bc.spotlightId ? "single" : bc.mode,
-      "videoSettings.showParticipantLabels": !!(els.labelsOn && els.labelsOn.checked),
+      "videoSettings.showParticipantLabels": true,
       "videoSettings.preferScreenshare": true,
     };
 
@@ -604,23 +601,12 @@
       params["videoSettings.preferredParticipantIds"] = bc.spotlightId;
     }
 
-    // Program title — small, bottom-right, out of the card's way
-    var title = els.titleText ? els.titleText.value.trim().slice(0, 60) : "";
-    params.showTextOverlay = !!title;
-    if (title) {
-      params["text.content"] = title;
-      params["text.align_horizontal"] = "right";
-      params["text.align_vertical"] = "bottom";
-      params["text.offset_x"] = -24;
-      params["text.fontFamily"] = "Bitter";
-      params["text.color"] = "rgba(240, 230, 208, 0.96)";
-    }
-
-    // Overlay card (lower third / prayer point / scripture) — bottom-left
-    params.showBannerOverlay = !!ov.banner;
-    if (ov.banner) {
-      params["banner.title"] = ov.banner.title;
-      params["banner.subtitle"] = ov.banner.subtitle || "";
+    // Overlay card (lower third / prayer point / scripture) — bottom-left.
+    // Only the PROGRAM slot reaches the broadcast.
+    params.showBannerOverlay = !!ov.program;
+    if (ov.program) {
+      params["banner.title"] = ov.program.title;
+      params["banner.subtitle"] = ov.program.subtitle || "";
       params["banner.position"] = "bottom-left";
       params["banner.enableTransition"] = true;
       params["banner.maxW_pct_default"] = 0.65;
@@ -775,42 +761,102 @@
       .filter(Boolean);
   }
 
+  /* setCard is what every deck panel calls.
+     Studio ON  -> the card is staged in PREVIEW; TAKE cuts it to program.
+     Studio OFF -> the card goes straight to program (instant on stream). */
   function setCard(card) {
-    ov.banner = card;
+    if (ov.studio && card) {
+      ov.preview = card;
+    } else {
+      ov.program = card;
+      if (bc.live) pushLayout();
+    }
     ovRemember();
     updateOvStatus();
-    if (bc.live) pushLayout();
   }
 
-  /* The monitor bar IS the status: it mirrors exactly what the broadcast
-     composition is showing (or will show when you go live). It sits between
-     the video and the deck so it never covers anyone on screen. */
+  /* Hide for one panel: clears its kind from wherever it sits. */
+  function hideKind(kind) {
+    var changed = false;
+    if (ov.program && ov.program.kind === kind) { ov.program = null; changed = true; }
+    if (ov.preview && ov.preview.kind === kind) { ov.preview = null; }
+    if (changed && bc.live) pushLayout();
+    ovRemember();
+    updateOvStatus();
+  }
+
+  function takePreview() {
+    if (!ov.preview) return;
+    ov.program = ov.preview;
+    ov.preview = null;
+    if (bc.live) pushLayout();
+    ovRemember();
+    updateOvStatus();
+  }
+
+  function clearProgram() {
+    if (!ov.program) return;
+    ov.program = null;
+    if (bc.live) pushLayout();
+    ovRemember();
+    updateOvStatus();
+  }
+
+  if (els.takeBtn) els.takeBtn.addEventListener("click", takePreview);
+  if (els.progClear) els.progClear.addEventListener("click", clearProgram);
+
+  if (els.studioToggle) {
+    els.studioToggle.addEventListener("click", function () {
+      ov.studio = !ov.studio;
+      if (!ov.studio) ov.preview = null; // leaving studio mode discards the staged card
+      bcRemember();
+      updateOvStatus();
+    });
+  }
+
+  /* The monitor row IS the status: preview slot, TAKE, program slot. */
   function updateOvStatus() {
-    var title = els.titleText ? els.titleText.value.trim().slice(0, 60) : "";
-
     if (els.monitor) {
-      els.monitor.hidden = !ov.banner && !title;
-      els.pvTag.textContent = bc.live ? "LIVE" : "PREVIEW";
-      els.pvTag.className = "pv-tag" + (bc.live ? " is-live" : "");
+      // Preview segment + TAKE only exist in studio mode
+      if (els.prevSeg) els.prevSeg.hidden = !ov.studio;
+      if (els.takeBtn) {
+        els.takeBtn.hidden = !ov.studio;
+        els.takeBtn.disabled = !ov.preview;
+      }
+      if (ov.studio && els.prevTitle) {
+        els.prevTitle.textContent = ov.preview ? ov.preview.title : "Nothing staged";
+        els.prevSub.textContent = (ov.preview && ov.preview.subtitle) || "";
+        els.prevSub.hidden = !(ov.preview && ov.preview.subtitle);
+      }
 
-      if (ov.banner) {
-        els.pvTitle.textContent = ov.banner.title;
-        els.pvSub.textContent = ov.banner.subtitle || "";
-        els.pvSub.hidden = !ov.banner.subtitle;
+      // Program segment
+      els.pvTag.textContent = bc.live ? "LIVE" : "OFF AIR";
+      els.pvTag.className = "pv-tag" + (bc.live ? " is-live" : "");
+      if (ov.program) {
+        els.pvTitle.textContent = ov.program.title;
+        els.pvSub.textContent = ov.program.subtitle || "";
+        els.pvSub.hidden = !ov.program.subtitle;
       } else {
         els.pvTitle.textContent = "No card on stream";
         els.pvSub.textContent = "";
         els.pvSub.hidden = true;
       }
+      if (els.progClear) els.progClear.hidden = !ov.program;
 
-      if (els.pvProgram) {
-        els.pvProgram.textContent = title;
-        els.pvProgram.hidden = !title;
+      if (els.studioToggle) {
+        els.studioToggle.textContent = ov.studio ? "Studio: On" : "Studio: Off";
+        els.studioToggle.classList.toggle("studio-on", ov.studio);
       }
     }
 
     if (els.l3Show) {
-      els.l3Show.textContent = (ov.banner && ov.banner.kind === "l3") ? "On ✓ (update)" : "Show";
+      els.l3Show.textContent = (ov.studio) ? "Stage" : "Show";
+    }
+    if (els.scGo) {
+      els.scGo.textContent = (ov.studio) ? "Stage verse" : "Show verse";
+    }
+    if (els.ppPush) {
+      els.ppPush.textContent = (ov.studio) ? "Stage" : "Push";
     }
   }
 
@@ -824,9 +870,7 @@
     });
   }
   if (els.l3Hide) {
-    els.l3Hide.addEventListener("click", function () {
-      if (ov.banner && ov.banner.kind === "l3") setCard(null);
-    });
+    els.l3Hide.addEventListener("click", function () { hideKind("l3"); });
   }
 
   /* ---------- Prayer points ---------- */
@@ -863,9 +907,7 @@
   }
 
   if (els.ppHide) {
-    els.ppHide.addEventListener("click", function () {
-      if (ov.banner && ov.banner.kind === "prayer") setCard(null);
-    });
+    els.ppHide.addEventListener("click", function () { hideKind("prayer"); });
   }
 
   /* ============================================================
@@ -971,9 +1013,7 @@
   }
 
   if (els.scHide) {
-    els.scHide.addEventListener("click", function () {
-      if (ov.banner && ov.banner.kind === "scripture") setCard(null);
-    });
+    els.scHide.addEventListener("click", function () { hideKind("scripture"); });
   }
 
   updateOvStatus();
