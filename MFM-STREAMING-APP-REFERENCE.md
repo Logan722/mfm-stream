@@ -125,9 +125,14 @@ browser (laptop or phone). Two views of the same app:
   (bottom-right; Bitter font — closest bundled VCS font to Fraunces; exact brand fonts
   need a custom VCS composition later). *Logo watermark was built, then removed at
   Dawn's request (July 2026) — re-add via `showImageOverlay` + `session_assets` if wanted.*
-- **9:16 vertical (Instagram)** deferred to Phase 6: needs a second concurrent streaming
-  instance (`instanceId`), and `max_streaming_instances_per_room` must be raised by Daily
-  support. Each instance bills its own streaming minutes.
+- **9:16 vertical (Instagram) — BUILT (July 2026), pending Daily enablement.**
+  Broadcast panel has an Instagram key field + **Go Live 9:16**: a second streaming
+  instance (fixed `instanceId` UUIDs — main `a1a1…`, vert `b2b2…`) with the `portrait`
+  preset (variant `vertical`, 1080×1920, up to 2 on camera). Separate 9:16 chip + timer.
+  ⚠️ Until Daily support raises `max_streaming_instances_per_room` for the
+  `mfmmegaregion2` domain, starting it alongside the 16:9 will error (the console says
+  so). IG notes: fresh key each session from the IG app, ~1 hr cap, Professional account.
+  Each instance bills its own streaming minutes.
 - Endpoint templates: YouTube `rtmp://a.rtmp.youtube.com/live2/<key>`,
   Facebook `rtmps://live-api-s.facebook.com:443/rtmp/<key>` (FB requires RTMPS).
 
@@ -151,15 +156,14 @@ browser (laptop or phone). Two views of the same app:
 - **Production deck** along the bottom of the video: four side-by-side panels —
   Broadcast · Lower third · Prayer points · Scripture. "Deck" button collapses it for full video.
 - **Right sidebar = People only** (list, statuses, moderation, mute-all).
-- **Studio row v4 — visual monitors (OBS Studio Mode pattern, per Dawn):** two 16:9
-  mock screens between video and deck — **PREVIEW | TAKE ▶ | PROGRAM**. Each draws the
-  scene composition: layout tiles (grid/speaker/split/PiP) with real participant names,
-  ★ featured person, and the overlay card rendered in place at proportion. **Scenes
-  stage everything** — card + layout + feature; TAKE cuts the whole scene. Studio OFF:
-  edits hit program (and the stream) instantly. Not live camera video (Prebuilt iframe
-  keeps tracks; true video panes need the custom-video phase) — the mocks show
-  composition, names, and card exactly.
-  Exists because compositor overlays appear ONLY in the RTMP output — never in the room.
+- **Studio mode REMOVED (Dawn, July 2026).** OBS-style preview/program was tried twice
+  (text row, then visual mock monitors); without real video feeds in the panes it wasn't
+  useful and ate screen space. Decision: **WYSIWYG instead** — every push is instant, and
+  the card renders over the host's video bottom-left exactly as the stream shows it,
+  tagged **LIVE** (broadcasting) or **OFF AIR**. Real preview/program returns only if the
+  custom-video phase (call-object mode, real tracks) is ever built.
+- **Bug fixed:** the LIVE chip showed while off air — display rules were overriding the
+  `hidden` attribute; global `[hidden]{display:none!important}` now guards this.
 - **Branding controls removed** (Dawn, July 2026): no name-labels toggle (labels
   hardcoded ON), no program-title overlay.
 - **Broadcast panel order:** Go Live at the top, then layout, destinations, branding —
@@ -227,7 +231,8 @@ Rotate the PAT after each session.
    *(9:16 vertical moves to Phase 6 with the Instagram work — needs a 2nd streaming instance)*
 4. **Overlays** — lower thirds + prayer points on the board. ✅ *(scripture next)*
 5. **Bible / scripture** — KJV overlay + one-tap brand scriptures. ✅
-6. **Multistream extras** — Instagram 9:16 vertical (2nd streaming instance).
+6. **Multistream extras** — Instagram 9:16 vertical (2nd streaming instance). ✅ built;
+   ⚠️ inactive until Daily support raises the domain's instance limit.
 7. **Hardening** — auth, scheduling, reliability, dry runs before any live use.
 
 ---

@@ -65,6 +65,7 @@
         <span class="bar-room-chip">Room: <strong id="bar-room">sanctuary</strong></span>
         <span class="bar-count" id="bar-count"></span>
         <span class="onair" id="live-chip" hidden>&#9679; LIVE <span id="live-timer">00:00</span></span>
+        <span class="onair vert" id="vert-chip" hidden>&#9679; 9:16 <span id="vert-timer">00:00</span></span>
       </div>
       <div class="bar-right">
         <button type="button" class="bar-btn" id="copy-link">Copy invite link</button>
@@ -75,22 +76,12 @@
 
     <div class="console-body">
       <div class="console-main">
-        <div class="stage" id="stage"></div>
-
-        <!-- Studio row: visual preview / TAKE / program monitors, like OBS Studio Mode -->
-        <div class="monitor" id="monitor">
-          <div class="mon-screen" id="prev-screen" hidden>
-            <span class="pv-tag">PREVIEW</span>
-            <div class="mock" id="prev-mock"></div>
-          </div>
-          <div class="mon-mid">
-            <button type="button" class="take-btn" id="take-btn" hidden>TAKE &#9654;</button>
-            <button type="button" class="p-btn" id="prog-clear">Clear card</button>
-            <button type="button" class="bar-btn" id="studio-toggle">Studio: Off</button>
-          </div>
-          <div class="mon-screen" id="prog-screen">
+        <div class="stage" id="stage">
+          <!-- WYSIWYG: this card mirrors exactly what the broadcast shows, in place -->
+          <div class="live-card" id="live-card" hidden>
             <span class="pv-tag" id="pv-tag">OFF AIR</span>
-            <div class="mock" id="prog-mock"></div>
+            <p class="lc-title" id="lc-title"></p>
+            <p class="lc-sub" id="lc-sub"></p>
           </div>
         </div>
 
@@ -118,7 +109,12 @@
             <label class="b-check"><input type="checkbox" id="custom-on"> Custom RTMP</label>
             <input type="text" id="custom-url" class="b-input" autocomplete="off"
                    placeholder="rtmp://server/app/streamkey">
-            <p class="b-hint">Keys stay on this device only. Overlays appear on the broadcast; the monitor bar below the video shows what viewers see.</p>
+            <p class="b-row-label">Vertical &mdash; 9:16 &middot; Instagram</p>
+            <input type="password" id="ig-key" class="b-input" autocomplete="off"
+                   placeholder="Instagram stream key (new one each session)">
+            <button type="button" class="p-btn b-vert" id="go-vert">Go Live 9:16</button>
+            <p class="b-hint" id="vert-status">Runs as a second stream instance &mdash; Daily support must enable it once for the domain.</p>
+            <p class="b-hint">Keys stay on this device only. The card on your video mirrors exactly what viewers see on the stream.</p>
           </section>
 
           <section class="deck-panel">

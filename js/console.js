@@ -1,14 +1,15 @@
 /* ============================================================
    MFM Mega Region 2 USA — Live Platform
-   Host console: Prebuilt video + production deck + studio row
+   Host console: Prebuilt video + production deck + people board
    ------------------------------------------------------------
-   - People board: mute / cam-off / co-host / remove / feature
-   - Broadcast: 16:9 RTMP to YouTube/Facebook (VCS custom preset)
-   - Studio row (OBS-style): visual PREVIEW and PROGRAM monitors.
-     Studio ON  -> edits (cards, layout, feature) stage in PREVIEW;
-                   TAKE cuts the whole scene to PROGRAM.
-     Studio OFF -> edits hit PROGRAM (and the stream) instantly.
-   - Overlay card producers: lower third, prayer points, scripture.
+   WYSIWYG rule: the card shown over the host's video is exactly
+   what the broadcast composition shows — same content, same
+   corner. Tagged LIVE when broadcasting, OFF AIR when not.
+
+   Broadcast: two instances via Daily live streaming
+     - main  16:9  (YouTube / Facebook / custom RTMP), VCS custom
+     - vert  9:16  (Instagram), portrait preset — needs Daily
+       support to allow a 2nd concurrent instance on the domain
    ============================================================ */
 
 (function () {
@@ -35,19 +36,16 @@
     plist: document.getElementById("plist"),
     muteAllBtn: document.getElementById("mute-all"),
     boardNote: document.getElementById("board-note"),
-    // Live status
+    // Live chips
     liveChip: document.getElementById("live-chip"),
     liveTimer: document.getElementById("live-timer"),
-    // Studio row
-    monitor: document.getElementById("monitor"),
-    prevScreen: document.getElementById("prev-screen"),
-    prevMock: document.getElementById("prev-mock"),
-    progScreen: document.getElementById("prog-screen"),
-    progMock: document.getElementById("prog-mock"),
+    vertChip: document.getElementById("vert-chip"),
+    vertTimer: document.getElementById("vert-timer"),
+    // WYSIWYG card on video
+    liveCard: document.getElementById("live-card"),
     pvTag: document.getElementById("pv-tag"),
-    takeBtn: document.getElementById("take-btn"),
-    progClear: document.getElementById("prog-clear"),
-    studioToggle: document.getElementById("studio-toggle"),
+    lcTitle: document.getElementById("lc-title"),
+    lcSub: document.getElementById("lc-sub"),
     // Broadcast panel
     goLiveBtn: document.getElementById("go-live"),
     bcError: document.getElementById("bc-error"),
@@ -58,6 +56,9 @@
     fbKey: document.getElementById("fb-key"),
     customOn: document.getElementById("custom-on"),
     customUrl: document.getElementById("custom-url"),
+    igKey: document.getElementById("ig-key"),
+    goVertBtn: document.getElementById("go-vert"),
+    vertStatus: document.getElementById("vert-status"),
     // Overlay panels
     l3Name: document.getElementById("l3-name"),
     l3Role: document.getElementById("l3-role"),
@@ -80,58 +81,27 @@
   var renderQueued = false;
   var confirmingEject = {}; // session_id -> timeout handle
 
-  /* ---------- Broadcast state ---------- */
-  var bc = {
-    live: false,
-    starting: false,
-    startedAt: 0,
-    timerId: null,
-    confirmingEnd: null,
+  /* ---------- Scene: what the 16:9 broadcast shows ---------- */
+  var scene = {
+    card: null,       // null | { kind, title, subtitle }
+    mode: "grid",     // grid | dominant | split | pip
+    spot: null,       // null | session_id featured full-screen
   };
-
-  /* ---------- Scenes (OBS-style) ----------
-     A scene = { card, mode, spot }
-       card: null | { kind, title, subtitle }   (lower third / prayer / scripture)
-       mode: grid | dominant | split | pip      (stream layout)
-       spot: null | session_id                  (featured full-screen person)
-     PROGRAM is what the broadcast shows. PREVIEW is the scene being edited.
-     Studio OFF: every edit auto-commits preview -> program.
-     Studio ON:  TAKE commits. */
-  var studio = false;
-  var program = { card: null, mode: "grid", spot: null };
-  var preview = { card: null, mode: "grid", spot: null };
   var ppIdx = 0;
 
-  function clone(s) { return JSON.parse(JSON.stringify(s)); }
-  function scenesEqual() { return JSON.stringify(program) === JSON.stringify(preview); }
+  /* ---------- Stream instances ---------- */
+  var MAIN_ID = "a1a1a1a1-1111-4a11-8a11-a1a1a1a1a1a1"; // fixed UUIDs — Daily instance ids
+  var VERT_ID = "b2b2b2b2-2222-4b22-8b22-b2b2b2b2b2b2";
 
-  /* Every edit funnels through here. */
-  function afterEdit() {
-    if (!studio) {
-      program = clone(preview);
-      if (bc.live) pushLayout();
-    }
+  var bc = { live: false, starting: false, startedAt: 0, timerId: null, confirmingEnd: null };
+  var vt = { live: false, starting: false, startedAt: 0, timerId: null, confirmingEnd: null };
+
+  /* Every scene edit is instant: persist, push to the stream if live,
+     and mirror on the video. What you see is what streams. */
+  function applyScene() {
     persistState();
-    renderStudio();
-  }
-
-  function takeScene() {
-    if (scenesEqual()) return;
-    program = clone(preview);
     if (bc.live) pushLayout();
-    persistState();
-    renderStudio();
-    queueRender(); // feature-button states follow the edit scene
-  }
-
-  function clearProgramCard() {
-    // Urgent hide: acts on PROGRAM directly, even in studio mode
-    if (!program.card && !preview.card) return;
-    program.card = null;
-    if (!studio) preview.card = null;
-    if (bc.live) pushLayout();
-    persistState();
-    renderStudio();
+    renderScene();
   }
 
   /* ---------- Room name ---------- */
@@ -171,8 +141,8 @@
     if (els.fbKey && savedBc.fbKey) els.fbKey.value = savedBc.fbKey;
     if (els.customOn && "customOn" in savedBc) els.customOn.checked = !!savedBc.customOn;
     if (els.customUrl && savedBc.customUrl) els.customUrl.value = savedBc.customUrl;
-    if ("studio" in savedBc) studio = !!savedBc.studio;
-    if (savedBc.mode) { program.mode = savedBc.mode; preview.mode = savedBc.mode; }
+    if (els.igKey && savedBc.igKey) els.igKey.value = savedBc.igKey;
+    if (savedBc.mode) scene.mode = savedBc.mode;
   } catch (e) { /* fine */ }
 
   try {
@@ -201,8 +171,8 @@
         fbKey: els.fbKey ? els.fbKey.value : "",
         customOn: els.customOn ? els.customOn.checked : false,
         customUrl: els.customUrl ? els.customUrl.value : "",
-        studio: studio,
-        mode: program.mode,
+        igKey: els.igKey ? els.igKey.value : "",
+        mode: scene.mode,
       }));
       localStorage.setItem(ovStoreKey, JSON.stringify({
         l3name: els.l3Name ? els.l3Name.value : "",
@@ -213,7 +183,7 @@
     } catch (e) { /* fine */ }
   }
 
-  ["ytOn", "ytKey", "fbOn", "fbKey", "customOn", "customUrl", "l3Name", "l3Role", "ppList"]
+  ["ytOn", "ytKey", "fbOn", "fbKey", "customOn", "customUrl", "igKey", "l3Name", "l3Role", "ppList"]
     .forEach(function (k) {
       if (els[k]) els[k].addEventListener("change", persistState);
     });
@@ -230,10 +200,6 @@
     if (!els.joinBtn) return;
     els.joinBtn.disabled = busy;
     els.joinBtn.textContent = busy ? "Preparing the room…" : "Enter as Host";
-  }
-
-  function esc(s) {
-    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
 
   /* ---------- Join flow ---------- */
@@ -330,22 +296,32 @@
       .on("participant-updated", queueRender)
       .on("participant-left", function (ev) {
         var id = ev && ev.participant && ev.participant.session_id;
-        if (id) {
-          var changed = false;
-          if (program.spot === id) { program.spot = null; changed = true; }
-          if (preview.spot === id) preview.spot = null;
-          if (changed && bc.live) pushLayout();
-          renderStudio();
+        if (id && scene.spot === id) {
+          scene.spot = null;
+          applyScene();
         }
         queueRender();
       })
-      .on("live-streaming-started", onLiveStarted)
-      .on("live-streaming-stopped", onLiveStopped)
+      .on("live-streaming-started", function (ev) {
+        if (isVert(ev)) vertStarted(); else onLiveStarted();
+      })
+      .on("live-streaming-stopped", function (ev) {
+        if (isVert(ev)) vertStopped(); else onLiveStopped();
+      })
       .on("live-streaming-error", function (ev) {
-        bc.starting = false;
-        panelError("Broadcast error: " + ((ev && ev.errorMsg) || "unknown") +
-          " — check your stream key and try again.");
-        onLiveStopped();
+        var msg = (ev && ev.errorMsg) || "unknown";
+        if (isVert(ev)) {
+          vt.starting = false;
+          vertStopped();
+          vertNote("9:16 error: " + msg +
+            (/instance|limit|maximum/i.test(msg)
+              ? " — the domain likely allows only one stream at a time; ask Daily support to raise it."
+              : " — check the Instagram key (they expire per session)."));
+        } else {
+          bc.starting = false;
+          panelError("Broadcast error: " + msg + " — check your stream key and try again.");
+          onLiveStopped();
+        }
       })
       .on("left-meeting", endCall)
       .on("error", function (ev) {
@@ -358,11 +334,16 @@
       endCall();
     });
 
-    renderStudio();
+    renderScene();
+  }
+
+  function isVert(ev) {
+    return !!(ev && ev.instanceId === VERT_ID);
   }
 
   function endCall() {
     onLiveStopped();
+    vertStopped();
     releaseWakeLock();
     if (callFrame) {
       try { callFrame.destroy(); } catch (e) { /* already gone */ }
@@ -381,7 +362,6 @@
     setTimeout(function () {
       renderQueued = false;
       renderBoard();
-      renderStudio(); // participant names feed the monitor mocks
     }, 150);
   }
 
@@ -423,8 +403,6 @@
 
     els.plist.innerHTML = "";
 
-    var editScene = studio ? preview : program;
-
     people.forEach(function (p) {
       var li = document.createElement("li");
       li.className = "p-row";
@@ -452,14 +430,14 @@
       var row = document.createElement("div");
       row.className = "p-actions";
 
-      // Feature on stream (stages in studio mode)
-      var featured = editScene.spot === p.session_id;
+      // Feature on stream (instant)
+      var featured = scene.spot === p.session_id;
       var feat = actionBtn(
         featured ? "★ Featured" : "Feature",
         false,
         function () {
-          preview.spot = featured ? null : p.session_id;
-          afterEdit();
+          scene.spot = featured ? null : p.session_id;
+          applyScene();
           queueRender();
         }
       );
@@ -616,24 +594,29 @@
   });
 
   window.addEventListener("beforeunload", function (e) {
-    if (bc.live) {
+    if (bc.live || vt.live) {
       e.preventDefault();
       e.returnValue = "";
     }
   });
 
   /* ============================================================
-     Broadcast — 16:9 RTMP via Daily live streaming (VCS custom)
+     Broadcast — main 16:9 (VCS custom) + vertical 9:16 (portrait)
      ============================================================ */
 
   var YT_TEMPLATE = "rtmp://a.rtmp.youtube.com/live2/";
   var FB_TEMPLATE = "rtmps://live-api-s.facebook.com:443/rtmp/";
+  var IG_TEMPLATE = "rtmps://live-upload.instagram.com:443/rtmp/";
 
   function panelError(msg) {
     if (!els.bcError) return;
     if (!msg) { els.bcError.hidden = true; els.bcError.textContent = ""; return; }
     els.bcError.hidden = false;
     els.bcError.textContent = msg;
+  }
+
+  function vertNote(msg) {
+    if (els.vertStatus) els.vertStatus.textContent = msg;
   }
 
   function buildEndpoints() {
@@ -652,19 +635,19 @@
 
   function compositionParams() {
     var params = {
-      mode: program.spot ? "single" : program.mode,
+      mode: scene.spot ? "single" : scene.mode,
       "videoSettings.showParticipantLabels": true,
       "videoSettings.preferScreenshare": true,
     };
 
-    if (program.spot) {
-      params["videoSettings.preferredParticipantIds"] = program.spot;
+    if (scene.spot) {
+      params["videoSettings.preferredParticipantIds"] = scene.spot;
     }
 
-    params.showBannerOverlay = !!program.card;
-    if (program.card) {
-      params["banner.title"] = program.card.title;
-      params["banner.subtitle"] = program.card.subtitle || "";
+    params.showBannerOverlay = !!scene.card;
+    if (scene.card) {
+      params["banner.title"] = scene.card.title;
+      params["banner.subtitle"] = scene.card.subtitle || "";
       params["banner.position"] = "bottom-left";
       params["banner.enableTransition"] = true;
       params["banner.maxW_pct_default"] = 0.65;
@@ -674,7 +657,6 @@
     return params;
   }
 
-  /* Layout mode buttons edit the scene */
   function setActiveModeButton(mode) {
     if (!els.modes) return;
     Array.prototype.forEach.call(els.modes.querySelectorAll(".mode-btn"), function (b) {
@@ -686,12 +668,12 @@
     els.modes.addEventListener("click", function (e) {
       var btn = e.target.closest ? e.target.closest(".mode-btn") : null;
       if (!btn) return;
-      preview.mode = btn.getAttribute("data-mode") || "grid";
-      afterEdit();
+      scene.mode = btn.getAttribute("data-mode") || "grid";
+      applyScene();
     });
   }
 
-  /* ---------- Go live / end ---------- */
+  /* ---------- Main 16:9: go live / end ---------- */
   if (els.goLiveBtn) {
     els.goLiveBtn.addEventListener("click", function () {
       if (!callFrame) return;
@@ -711,6 +693,7 @@
 
       try {
         callFrame.startLiveStreaming({
+          instanceId: MAIN_ID,
           rtmpUrl: eps.length === 1 ? eps[0] : eps,
           width: 1920,
           height: 1080,
@@ -733,7 +716,7 @@
     if (bc.confirmingEnd) {
       clearTimeout(bc.confirmingEnd);
       bc.confirmingEnd = null;
-      try { callFrame.stopLiveStreaming(); } catch (e) { onLiveStopped(); }
+      try { callFrame.stopLiveStreaming({ instanceId: MAIN_ID }); } catch (e) { onLiveStopped(); }
       els.goLiveBtn.textContent = "Ending…";
       els.goLiveBtn.disabled = true;
     } else {
@@ -749,6 +732,7 @@
     if (!callFrame || !bc.live) return;
     try {
       callFrame.updateLiveStreaming({
+        instanceId: MAIN_ID,
         layout: { preset: "custom", composition_params: compositionParams() },
       });
     } catch (e) { /* stream may be mid-transition; next change re-applies */ }
@@ -765,10 +749,10 @@
     }
     if (els.liveChip) els.liveChip.hidden = false;
     if (bc.timerId) clearInterval(bc.timerId);
-    bc.timerId = setInterval(tickTimer, 1000);
-    tickTimer();
+    bc.timerId = setInterval(tickMain, 1000);
+    tickMain();
     panelError("");
-    renderStudio();
+    renderScene();
   }
 
   function onLiveStopped() {
@@ -782,130 +766,143 @@
       els.goLiveBtn.textContent = "Go Live";
       els.goLiveBtn.classList.remove("is-live");
     }
-    renderStudio();
+    renderScene();
   }
 
-  function tickTimer() {
-    if (!els.liveTimer || !bc.startedAt) return;
-    var s = Math.floor((Date.now() - bc.startedAt) / 1000);
+  /* ---------- Vertical 9:16 (Instagram): go live / end ---------- */
+  if (els.goVertBtn) {
+    els.goVertBtn.addEventListener("click", function () {
+      if (!callFrame) return;
+      if (vt.live || vt.starting) { requestVertEnd(); return; }
+
+      var key = els.igKey ? els.igKey.value.trim() : "";
+      if (!key) {
+        vertNote("Paste your Instagram stream key first (Instagram issues a fresh one per session).");
+        return;
+      }
+
+      vt.starting = true;
+      els.goVertBtn.disabled = true;
+      els.goVertBtn.textContent = "Connecting 9:16…";
+      persistState();
+
+      try {
+        callFrame.startLiveStreaming({
+          instanceId: VERT_ID,
+          rtmpUrl: key.indexOf("rtmp") === 0 ? key : IG_TEMPLATE + key,
+          width: 1080,
+          height: 1920,
+          layout: { preset: "portrait", variant: "vertical" },
+        });
+      } catch (err) {
+        vt.starting = false;
+        els.goVertBtn.disabled = false;
+        els.goVertBtn.textContent = "Go Live 9:16";
+        vertNote("Could not start 9:16: " + (err.message || err));
+      }
+    });
+  }
+
+  function requestVertEnd() {
+    if (!vt.live && !vt.starting) return;
+    if (vt.confirmingEnd) {
+      clearTimeout(vt.confirmingEnd);
+      vt.confirmingEnd = null;
+      try { callFrame.stopLiveStreaming({ instanceId: VERT_ID }); } catch (e) { vertStopped(); }
+      els.goVertBtn.textContent = "Ending 9:16…";
+      els.goVertBtn.disabled = true;
+    } else {
+      vt.confirmingEnd = setTimeout(function () {
+        vt.confirmingEnd = null;
+        if (vt.live) els.goVertBtn.textContent = "End 9:16";
+      }, 4000);
+      els.goVertBtn.textContent = "Tap again to end";
+    }
+  }
+
+  function vertStarted() {
+    if (!vt.live) vt.startedAt = Date.now();
+    vt.live = true;
+    vt.starting = false;
+    if (els.goVertBtn) {
+      els.goVertBtn.disabled = false;
+      els.goVertBtn.textContent = "End 9:16";
+      els.goVertBtn.classList.add("is-live-vert");
+    }
+    if (els.vertChip) els.vertChip.hidden = false;
+    if (vt.timerId) clearInterval(vt.timerId);
+    vt.timerId = setInterval(tickVert, 1000);
+    tickVert();
+    vertNote("9:16 vertical is live (portrait layout, up to 2 on camera).");
+  }
+
+  function vertStopped() {
+    vt.live = false;
+    vt.starting = false;
+    if (vt.timerId) { clearInterval(vt.timerId); vt.timerId = null; }
+    if (vt.confirmingEnd) { clearTimeout(vt.confirmingEnd); vt.confirmingEnd = null; }
+    if (els.vertChip) els.vertChip.hidden = true;
+    if (els.goVertBtn) {
+      els.goVertBtn.disabled = false;
+      els.goVertBtn.textContent = "Go Live 9:16";
+      els.goVertBtn.classList.remove("is-live-vert");
+    }
+  }
+
+  function fmtClock(startedAt) {
+    var s = Math.floor((Date.now() - startedAt) / 1000);
     var h = Math.floor(s / 3600);
     var m = Math.floor((s % 3600) / 60);
     var sec = s % 60;
     var mm = (m < 10 ? "0" : "") + m;
     var ss = (sec < 10 ? "0" : "") + sec;
-    els.liveTimer.textContent = h > 0 ? h + ":" + mm + ":" + ss : mm + ":" + ss;
+    return h > 0 ? h + ":" + mm + ":" + ss : mm + ":" + ss;
+  }
+
+  function tickMain() {
+    if (els.liveTimer && bc.startedAt) els.liveTimer.textContent = fmtClock(bc.startedAt);
+  }
+
+  function tickVert() {
+    if (els.vertTimer && vt.startedAt) els.vertTimer.textContent = fmtClock(vt.startedAt);
   }
 
   /* ============================================================
-     Studio row — visual PREVIEW / PROGRAM monitors (OBS-style)
+     WYSIWYG card on the video — mirrors the stream exactly
      ============================================================ */
 
-  if (els.takeBtn) els.takeBtn.addEventListener("click", takeScene);
-  if (els.progClear) els.progClear.addEventListener("click", clearProgramCard);
-
-  if (els.studioToggle) {
-    els.studioToggle.addEventListener("click", function () {
-      studio = !studio;
-      preview = clone(program); // start (or stop) editing from what's on air
-      persistState();
-      renderStudio();
-      queueRender();
-    });
-  }
-
-  function spotName(scene) {
-    if (!scene.spot) return null;
-    var all = allParticipants();
-    for (var i = 0; i < all.length; i++) {
-      if (all[i].session_id === scene.spot) return displayName(all[i]);
+  function renderScene() {
+    if (els.liveCard) {
+      if (scene.card) {
+        els.liveCard.hidden = false;
+        els.lcTitle.textContent = scene.card.title;
+        els.lcSub.textContent = scene.card.subtitle || "";
+        els.lcSub.hidden = !scene.card.subtitle;
+      } else {
+        els.liveCard.hidden = true;
+      }
+      if (els.pvTag) {
+        els.pvTag.textContent = bc.live ? "LIVE" : "OFF AIR";
+        els.pvTag.className = "pv-tag" + (bc.live ? " is-live" : "");
+      }
     }
-    return "(left the room)";
-  }
-
-  function mtile(name, cls) {
-    return '<div class="mtile ' + cls + '"><span>' + esc(name) + "</span></div>";
-  }
-
-  function drawMock(mockEl, scene) {
-    if (!mockEl) return;
-    var names = allParticipants().map(displayName);
-    if (!names.length) names = ["Waiting…"];
-
-    var html = "";
-    var featured = spotName(scene);
-
-    if (featured) {
-      html += mtile("★ " + featured, "t-full");
-    } else if (scene.mode === "split") {
-      html += '<div class="t-grid g2">' + mtile(names[0] || "—", "t-cell") +
-              mtile(names[1] || "—", "t-cell") + "</div>";
-    } else if (scene.mode === "pip") {
-      html += mtile("Active speaker", "t-full") + mtile(names[1] || "…", "t-pip");
-    } else if (scene.mode === "dominant") {
-      html += '<div class="t-dom-wrap">' + mtile("Active speaker", "t-dom") +
-              '<div class="t-strip">' +
-              names.slice(0, 4).map(function (n) { return mtile(n, "t-mini"); }).join("") +
-              "</div></div>";
-    } else { // grid
-      var show = names.slice(0, 6);
-      var cols = show.length <= 1 ? "g1" : show.length <= 4 ? "g2" : "g3";
-      html += '<div class="t-grid ' + cols + '">' +
-              show.map(function (n) { return mtile(n, "t-cell"); }).join("") + "</div>";
-    }
-
-    if (scene.card) {
-      html += '<div class="mock-card"><p class="mc-t">' + esc(scene.card.title) + "</p>" +
-              (scene.card.subtitle ? '<p class="mc-s">' + esc(scene.card.subtitle) + "</p>" : "") +
-              "</div>";
-    }
-
-    mockEl.innerHTML = html;
-  }
-
-  function renderStudio() {
-    if (!els.monitor) return;
-
-    if (els.prevScreen) els.prevScreen.hidden = !studio;
-    if (els.takeBtn) {
-      els.takeBtn.hidden = !studio;
-      els.takeBtn.disabled = scenesEqual();
-    }
-
-    if (studio) drawMock(els.prevMock, preview);
-    drawMock(els.progMock, program);
-
-    if (els.pvTag) {
-      els.pvTag.textContent = bc.live ? "LIVE" : "OFF AIR";
-      els.pvTag.className = "pv-tag" + (bc.live ? " is-live" : "");
-    }
-    if (els.progClear) els.progClear.disabled = !program.card;
-
-    if (els.studioToggle) {
-      els.studioToggle.textContent = studio ? "Studio: On" : "Studio: Off";
-      els.studioToggle.classList.toggle("studio-on", studio);
-    }
-
-    setActiveModeButton((studio ? preview : program).mode);
-
-    if (els.l3Show) els.l3Show.textContent = studio ? "Stage" : "Show";
-    if (els.scGo) els.scGo.textContent = studio ? "Stage verse" : "Show verse";
-    if (els.ppPush) els.ppPush.textContent = studio ? "Stage" : "Push";
+    setActiveModeButton(scene.mode);
   }
 
   /* ============================================================
-     Overlay card producers
+     Overlay card producers (all instant — what you see streams)
      ============================================================ */
 
   function setCard(card) {
-    preview.card = card;
-    afterEdit();
+    scene.card = card;
+    applyScene();
   }
 
   function hideKind(kind) {
-    var changed = false;
-    if (preview.card && preview.card.kind === kind) { preview.card = null; changed = true; }
-    if (!studio && program.card && program.card.kind === kind) { program.card = null; changed = true; }
-    if (changed) afterEdit();
+    if (scene.card && scene.card.kind === kind) {
+      scene.card = null;
+      applyScene();
+    }
   }
 
   /* ---------- Lower third ---------- */
@@ -1030,5 +1027,5 @@
   }
 
   /* ---------- Init ---------- */
-  renderStudio();
+  renderScene();
 })();

@@ -36,6 +36,10 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { height: 100%; }
 
+/* The hidden attribute always wins — even over display rules.
+   (A missing rule here once made the LIVE chip show while off air.) */
+[hidden] { display: none !important; }
+
 body {
   min-height: 100vh;
   min-height: 100dvh;
@@ -431,158 +435,59 @@ body.deck-hidden .deck { display: none; }
   font-size: 0.85rem !important;
 }
 
-/* ---------- Studio row: visual preview/program monitors ---------- */
-.monitor {
-  display: flex;
-  align-items: stretch;
-  justify-content: center;
-  gap: 14px;
-  flex-shrink: 0;
-  padding: 10px 14px;
-  background: var(--bg-navy-deep);
-  border-top: 1px solid var(--line-navy-strong);
-  height: 176px;
-}
-
-.mon-screen {
-  position: relative;
-  height: 100%;
-  aspect-ratio: 16 / 9;
-  background: #0a1424;
-  border: 1px solid var(--line-navy-strong);
-  border-radius: 6px;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.mon-screen .pv-tag {
+/* ---------- WYSIWYG card over the video (mirrors the stream) ---------- */
+.live-card {
   position: absolute;
-  top: 6px;
-  left: 6px;
+  left: 18px;
+  bottom: 72px;
   z-index: 3;
+  pointer-events: none;
+  max-width: min(42%, 520px);
+  background: rgba(10, 16, 28, 0.93);
+  border-left: 3px solid var(--gold);
+  border-radius: 6px;
+  padding: 11px 15px 11px 13px;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.45);
 }
 
-.mon-mid {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-/* Mock composition inside a monitor */
-.mock {
-  position: absolute;
-  inset: 0;
-  padding: 4px;
-}
-
-.mtile {
-  background: #12203a;
-  border: 1px solid #233a63;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  min-height: 0;
-  min-width: 0;
-}
-
-.mtile span {
-  font-size: 9px;
-  color: #6a7a96;
-  padding: 0 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.t-full { position: absolute; inset: 4px; }
-
-.t-pip {
-  position: absolute;
-  right: 7px;
-  top: 7px;
-  width: 26%;
-  aspect-ratio: 16 / 9;
-  z-index: 2;
-  background: #1a2d4d;
-}
-
-.t-grid {
-  display: grid;
-  gap: 3px;
-  height: 100%;
-}
-
-.t-grid.g1 { grid-template-columns: 1fr; }
-.t-grid.g2 { grid-template-columns: 1fr 1fr; }
-.t-grid.g3 { grid-template-columns: 1fr 1fr 1fr; }
-
-.t-dom-wrap { display: flex; gap: 3px; height: 100%; }
-.t-dom { flex: 3; }
-.t-strip { flex: 1; display: flex; flex-direction: column; gap: 3px; }
-.t-mini { flex: 1; }
-
-.mock-card {
-  position: absolute;
-  left: 7px;
-  bottom: 7px;
-  max-width: 65%;
-  z-index: 4;
-  background: rgba(8, 13, 24, 0.93);
-  border-left: 2px solid var(--gold);
-  border-radius: 3px;
-  padding: 5px 9px;
-}
-
-.mc-t {
+.lc-title {
   font-family: var(--serif);
   font-weight: 650;
-  font-size: 10.5px;
+  font-size: 1rem;
   line-height: 1.25;
   color: var(--cream);
 }
 
-.mc-s {
-  margin-top: 2px;
-  font-size: 8.5px;
-  line-height: 1.35;
+.lc-sub {
+  margin-top: 4px;
+  font-size: 0.84rem;
+  line-height: 1.45;
   color: #b9c4da;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
-.take-btn {
-  flex-shrink: 0;
-  border: none;
-  border-radius: 8px;
-  background: linear-gradient(135deg, var(--fire-light), var(--fire));
-  color: #fff8ef;
-  font-family: var(--sans);
-  font-weight: 800;
-  font-size: 0.8rem;
-  letter-spacing: 0.12em;
-  padding: 10px 18px;
-  cursor: pointer;
-  box-shadow: 0 8px 22px -6px rgba(232, 93, 38, 0.55);
-  transition: transform 0.12s, filter 0.15s, opacity 0.15s;
+.b-vert {
+  width: 100%;
+  margin-top: 8px;
+  padding: 9px 12px;
 }
 
-.take-btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.08); }
-.take-btn:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
+.b-vert.is-live-vert {
+  background: #d63b3b;
+  border-color: #d63b3b;
+  color: #fff2ee;
+}
 
-.bar-btn.studio-on {
-  background: var(--gold);
-  color: var(--bg-navy-deep);
-  border-color: var(--gold);
+.onair.vert {
+  color: var(--gold-light);
+  border-color: var(--line-navy-strong);
+  background: var(--gold-glow);
+  animation: none;
 }
 
 .pv-tag {
-  flex-shrink: 0;
+  position: absolute;
+  top: -9px;
+  right: 10px;
   font-size: 0.58rem;
   font-weight: 800;
   letter-spacing: 0.16em;
@@ -908,25 +813,8 @@ body.deck-hidden .deck { display: none; }
     overflow-y: visible;
   }
 
-  /* Studio row stacks on small screens */
-  .monitor {
-    flex-wrap: wrap;
-    height: auto;
-    justify-content: center;
-  }
-
-  .mon-screen {
-    height: auto;
-    width: calc(50% - 8px);
-    aspect-ratio: 16 / 9;
-  }
-
-  .mon-mid {
-    order: 3;
-    flex-direction: row;
-    width: 100%;
-    justify-content: center;
-  }
+  /* WYSIWYG card scales down on small screens */
+  .live-card { max-width: 74%; bottom: 84px; }
 }
 
 @media (max-width: 520px) {
