@@ -84,6 +84,8 @@
     mdVol: document.getElementById("md-vol"),
     mdPause: document.getElementById("md-pause"),
     mdStop: document.getElementById("md-stop"),
+    mdShow: document.getElementById("md-show"),
+    mdUnshow: document.getElementById("md-unshow"),
     mdStatus: document.getElementById("md-status"),
     cardPosRow: document.getElementById("card-pos"),
     scBrand: document.getElementById("sc-brand"),
@@ -2034,6 +2036,55 @@
       } catch (e) {
         mdNote("Could not play: " + whyText(e));
       }
+    });
+  }
+
+  /* ---------- Show / Back to layout (Dawn, July 31) ----------
+     Show FEATURES the playing video full-screen — same spot mechanism as the
+     People "Feature" button, so in studio mode it stages on PREVIEW and TAKE
+     sends it to air; with studio off it's instant. Works for both modes:
+     the link player and the MEDIA helper are both room participants. */
+  function mediaSid() {
+    if (md.sessionId) return md.sessionId; // link mode
+    if (callFrame) {
+      try {
+        var ps = callFrame.participants() || {};
+        for (var k in ps) {
+          var p = ps[k];
+          if (p && (p.user_name === "MEDIA" || p.participantType === "remote-media-player")) {
+            return p.session_id;
+          }
+        }
+      } catch (e) { /* fine */ }
+    }
+    return null;
+  }
+
+  if (els.mdShow) {
+    els.mdShow.addEventListener("click", function () {
+      var sid = mediaSid();
+      if (!sid) { mdNote("Nothing is playing yet — start a file or a link first, then Show."); return; }
+      var sc = activeScene();
+      sc.spot = sid;
+      sc.slate = null; // showing the video dismisses a slate
+      applyScene();
+      queueRender();
+      mdNote(studio.on
+        ? "Video staged full-screen on PREVIEW — press TAKE to send it to air."
+        : "Video is full-screen on the stream. “Back to layout” returns to the room.");
+    });
+  }
+
+  if (els.mdUnshow) {
+    els.mdUnshow.addEventListener("click", function () {
+      var sc = activeScene();
+      if (!sc.spot) { mdNote("Already on the normal layout."); return; }
+      sc.spot = null;
+      applyScene();
+      queueRender();
+      mdNote(studio.on
+        ? "Normal layout staged on PREVIEW — press TAKE to send it to air."
+        : "Back to the normal layout.");
     });
   }
 

@@ -459,6 +459,24 @@ C command rail / D theater) and picked **B**. Shipped:
 - Same day: Royal Flame scrollbars everywhere (thin rounded gold thumb on navy).
 - Netlify deploy only — no VPS restart needed for console/monitor page changes.
 
+### Field fixes round 2 (July 31, 2026 — Dawn's live test)
+- **Monitors went black ("subscribed by id" then nothing):** monitor.html only
+  subscribed once, by a session id the console captured earlier — stale after any
+  engine restart, and it never handled the engine already being in the room.
+  Now it sweeps `call.participants()` on join, re-subscribes on every
+  participant event AND on a 4s retry timer until each feed attaches, and the
+  pane messages say what's wrong in plain words (engine missing / attempt N).
+- **Media "Show full-screen" / "Back to layout" buttons** on the Media tab —
+  same `scene.spot` mechanism as People→Feature (media session id: link mode =
+  remote-media-player sid; file mode = the MEDIA participant). Studio on →
+  stages on PREVIEW, TAKE airs it; studio off → instant.
+- Earlier same day: media file audio-only fixed (canvas pump in media.html +
+  160×90 near-invisible helper frame); FFmpeg stderr tail now surfaces in the
+  console error (runner.js — needs `git pull && docker compose up -d --build`
+  on the droplet); page-links (YouTube etc.) rejected with a plain-words
+  message instead of "[object Object]".
+- Engine build jul31-n15 confirmed on the VPS during the test.
+
 ### NEXT SESSION — top of queue (July 30, end of day)
 1. **Card style controls, modeled on Dawn's OBS "Lower Thirds" plugin screenshot**
    (analyzed): text alignment L/C/R, font size, line spacing, font choice, BOLD toggles,
