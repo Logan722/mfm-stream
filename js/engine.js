@@ -48,7 +48,7 @@
 
   var W = 1920, H = 1080, FPS = 30;
   var FADE = 0.22; // card fade seconds
-  var BUILD = "jul31-n12"; // shown in the console Engine panel — stale-engine detector
+  var BUILD = "jul31-n13"; // shown in the console Engine panel — stale-engine detector
 
   /* ---------- Royal Flame tokens ---------- */
   var C = {
@@ -1181,24 +1181,13 @@
     ctx.save();
     ctx.globalAlpha = alpha;
     roundRect(x, y, w, h, 10);
-    ctx.fillStyle = C.cardBg;
+    ctx.fillStyle = "rgba(10, 16, 28, 0.6)";
     ctx.fill();
-    ctx.save();
-    roundRect(x, y, w, h, 10);
-    ctx.clip();
-    ctx.fillStyle = C.gold;
-    ctx.fillRect(x, y, barW, h);
-    ctx.restore();
     var tx = x + barW + padX, ty = y + padY;
     ctx.textBaseline = "top";
-    ctx.fillStyle = card.kind === "prayer" ? C.fireLight : C.cream;
-    if (card.kind === "prayer") {
-      ctx.font = "700 23px " + SANS;
-      spacedTextLeft(card.title.toUpperCase(), tx, ty + 6, 2);
-    } else {
-      ctx.font = "650 38px " + SERIF;
-      ctx.fillText(card.title, tx, ty, maxW);
-    }
+    ctx.fillStyle = card.kind === "prayer" ? "#D54141" : "#F2F2F2";
+    ctx.font = "800 34px " + SANS;
+    ctx.fillText(card.title, tx, ty, maxW);
     ty += 48;
     if (lines.length) {
       ty += 10;
@@ -1245,7 +1234,7 @@
   }
 
   var CARD = {
-    padX: 8, padY: 4, barW: 0, gap: 10, maxTextW: 700, subLH: 40,
+    padX: 18, padY: 12, barW: 0, gap: 10, maxTextW: 700, subLH: 40,
     titleFont: "800 44px " + SANS,
     subFont: "500 30px " + SANS,
     kickFont: "700 20px " + SANS,
@@ -1304,8 +1293,11 @@
     ctx.globalAlpha = a;
     ctx.translate(0, (1 - a) * 14); // gentle rise
 
-    // Clean OBS-style lower third (Dawn, July 30): no box, no bar —
-    // white title / gray line, legibility from a soft shadow.
+    // Clean OBS-style lower third + a soft backing strip so the text stays
+    // readable over bright video (field-found: gray text washed out).
+    roundRect(box.x, box.y, box.w, box.h, 10);
+    ctx.fillStyle = "rgba(10, 16, 28, 0.6)";
+    ctx.fill();
     ctx.shadowColor = "rgba(0, 0, 0, 0.85)";
     ctx.shadowBlur = 10;
     ctx.shadowOffsetY = 2;

@@ -432,6 +432,7 @@
         if (d && d.t === "mfm-engine" && d.state) {
           eng.lastState = d.state;
           eng.lastSeen = Date.now();
+          if (!studio.on) setStudio(true); // always-studio console
           if (d.state.runner === "cloud") {
             eng.cloudSid = ev.fromId;
             eng.cloudSeen = Date.now();
@@ -1261,6 +1262,7 @@
     if (els.takeBtn) els.takeBtn.hidden = !studio.on;
     if (els.cutBtn) els.cutBtn.hidden = !studio.on;
     document.body.classList.toggle("studio-open", studio.on);
+    setTimeout(positionMonControls, 60);
     // TAKE/CUT live BETWEEN the monitors (OBS-style) while studio is on
     var mc = document.getElementById("mon-controls");
     if (mc && els.takeBtn && els.cutBtn) {
@@ -1319,26 +1321,39 @@
     if (frame) { frame.onload = null; frame.src = "about:blank"; }
   }
 
-  if (els.studioToggle) {
-    els.studioToggle.addEventListener("click", function () {
-      if (!studio.on && !engineOnline()) {
-        panelError("Studio mode needs the engine online — it renders the preview.");
-        return;
-      }
-      studio.on = !studio.on;
-      if (studio.on) {
-        studio.preview = deepCopy(scene);
-        sendCmd({ cmd: "studio", on: true });
-        sendSceneCmd("scene-preview", studio.preview);
-      } else {
-        studio.preview = null;
-        sendCmd({ cmd: "studio", on: false });
-      }
-      updateStudioUI();
-      renderScene();
-      queueRender();
-    });
+  function setStudio(on) {
+    if (studio.on === on) return;
+    studio.on = on;
+    if (on) {
+      studio.preview = deepCopy(scene);
+      sendCmd({ cmd: "studio", on: true });
+      sendSceneCmd("scene-preview", studio.preview);
+    } else {
+      studio.preview = null;
+      sendCmd({ cmd: "studio", on: false });
+    }
+    updateStudioUI();
+    renderScene();
+    queueRender();
   }
+
+  // Studio is the console's ONE mode now (Dawn) — it turns itself on the
+  // moment the engine is heard; the toggle button is retired.
+  if (els.studioToggle) els.studioToggle.hidden = true;
+
+  function positionMonControls() {
+    var mons = document.getElementById("monitors");
+    var mc = document.getElementById("mon-controls");
+    if (!mons || !mc || !studio.on) return;
+    var M = mons.clientWidth - 12;
+    if (M < 100) return;
+    var hasVert = mons.classList.contains("has-vert");
+    var pv = hasVert ? (M - 180 - 0.2 * M) / 2 : (M - 128) / 2;
+    var gapHalf = hasVert ? 45 : 64;
+    mc.style.left = (6 + pv + gapHalf) + "px";
+  }
+  window.addEventListener("resize", positionMonControls);
+  setInterval(positionMonControls, 1200);
 
   function doTake(fx) {
     if (!studio.on || !studio.preview) return;
@@ -1423,7 +1438,12 @@
     csAlign.addEventListener("click", function (e) {
       var b = e.target.closest ? e.target.closest("[data-al]") : null;
       if (!b) return;
-      cardStyleOf(activeScene()).align = b.getAttribute("data-al");
+      var al = b.getAttribute("data-al");
+      var s2c = activeScene();
+      cardStyleOf(s2c).align = al;
+      // Left/Center/Right also MOVE the card across the screen (like Word)
+      var vch = /^[tb]/.test(s2c.cardPos || "") ? s2c.cardPos.charAt(0) : "b";
+      s2c.cardPos = vch + { left: "l", center: "c", right: "r" }[al];
       Array.prototype.forEach.call(csAlign.querySelectorAll(".al-btn"), function (x) {
         x.classList.toggle("active", x === b);
       });
