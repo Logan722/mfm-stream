@@ -232,6 +232,7 @@
     if (els.ppList && savedOv.points) els.ppList.value = savedOv.points;
     if (typeof savedOv.ppIdx === "number") ppIdx = savedOv.ppIdx;
     if (/^[tb][lcr]$/.test(savedOv.cardPos || "")) scene.cardPos = savedOv.cardPos;
+    if (/^t/.test(scene.cardPos)) scene.cardPos = "b" + scene.cardPos.charAt(1); // bottom, always
     scene.labels = !!savedOv.labels;
     if (savedOv.cardStyle) scene.cardStyle = savedOv.cardStyle;
     if (els.labelsOn) els.labelsOn.checked = scene.labels;
@@ -1435,8 +1436,7 @@
       var b = e.target.closest ? e.target.closest("[data-pos]") : null;
       if (!b) return;
       var s2c = activeScene();
-      var vch = /^[tb]/.test(s2c.cardPos || "") ? s2c.cardPos.charAt(0) : "b";
-      s2c.cardPos = vch + b.getAttribute("data-pos"); // moves the card
+      s2c.cardPos = "b" + b.getAttribute("data-pos"); // cards live at the bottom
       Array.prototype.forEach.call(csPos.querySelectorAll(".cp-btn"), function (x) {
         x.classList.toggle("active", x === b);
       });
