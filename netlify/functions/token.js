@@ -127,7 +127,7 @@ exports.handler = async (event) => {
 
   try {
     const roomInfo = await ensureRoom(apiKey, room);
-    const token = await mintTokenForRole(apiKey, role, roomInfo.name, name);
+    const token = await mintTokenForRole(apiKey, role, roomInfo.name, name, body.hidden);
 
     return json(200, {
       token: token,
@@ -173,7 +173,7 @@ async function ensureRoom(apiKey, roomName) {
    - participant:  neither sees nor hears PROGRAM (Dawn's choice, July 2026)
    If Daily ever rejects the permissions shape, fall back to a plain token so
    joining is never blocked — the console also enforces its own rules live. */
-async function mintTokenForRole(apiKey, role, roomName, userName) {
+async function mintTokenForRole(apiKey, role, roomName, userName, hidden) {
   const exp = Math.floor(Date.now() / 1000) +
     (role === "engine" ? ENGINE_TTL_SECONDS : TOKEN_TTL_SECONDS);
 
@@ -186,7 +186,7 @@ async function mintTokenForRole(apiKey, role, roomName, userName) {
 
   if (role === "engine") {
     const props = { ...base, user_id: ENGINE_USER_ID };
-    if (body.hidden === true || body.hidden === "1" || body.hidden === 1) {
+    if (hidden === true || hidden === "1" || hidden === 1) {
       // Invisible engine: no tile for anyone. Falls back to visible if
       // Daily rejects the permission — joining is never blocked.
       try {
