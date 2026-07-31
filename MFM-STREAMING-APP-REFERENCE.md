@@ -419,6 +419,21 @@ the broadcast ourselves** (hybrid): we paint every pixel; Daily keeps doing tran
   monitor subscription — test carefully), PROGRAM presence hiding, master
   compressor/limiter, saved scenes, image fliers, fade-to-black.
 
+### Position-shaped cards (July 31, 2026 — Dawn)
+- The Position control (Left / Center / Right) now SHAPES the card, not just moves it:
+  **Left** = classic card, gold bar on the LEFT edge (unchanged) · **Right** = mirrored
+  card, gold bar rides the RIGHT edge · **Center** = a LONG lower-third banner —
+  fixed 1300px of the 1920 frame (~2/3 width), centered, with full-width gold bars
+  along the TOP + BOTTOM instead of a side bar (Dawn picked top/bottom over side
+  bars/full frame). Text wrap widens to fill the banner; slight extra padding clears
+  the bars. Applies to every card kind (l3 / prayer / scripture); labels still step aside.
+- **Prayer card: the "Prayer Point n of m" line is now GOLD** (`goldLight #d4a853`)
+  instead of fire orange — on both the 16:9 and the 9:16 portrait card. The point text
+  itself stays cream (Dawn's pick: counter line only).
+- Engine `BUILD jul31-n15`. Verified in demo mode (all six shots). Legacy VCS fallback
+  untouched (styled text has no bars). ⚠️ Remember: `docker compose restart` on the VPS
+  after deploy or the engine keeps the old card.
+
 ### NEXT SESSION — top of queue (July 30, end of day)
 1. **Card style controls, modeled on Dawn's OBS "Lower Thirds" plugin screenshot**
    (analyzed): text alignment L/C/R, font size, line spacing, font choice, BOLD toggles,

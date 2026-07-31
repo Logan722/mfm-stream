@@ -48,7 +48,7 @@
 
   var W = 1920, H = 1080, FPS = 30;
   var FADE = 0.22; // card fade seconds
-  var BUILD = "jul31-n14"; // shown in the console Engine panel — stale-engine detector
+  var BUILD = "jul31-n15"; // shown in the console Engine panel — stale-engine detector
 
   /* ---------- Royal Flame tokens ---------- */
   var C = {
@@ -1191,7 +1191,7 @@
     ctx.restore();
     var tx = x + 6 + padX, ty = y + padY;
     ctx.textBaseline = "top";
-    ctx.fillStyle = card.kind === "prayer" ? "#FF7A3D" : "#F0E6D0";
+    ctx.fillStyle = card.kind === "prayer" ? C.goldLight : "#F0E6D0";
     ctx.font = "650 36px " + SERIF;
     ctx.fillText(card.title, tx, ty, maxW);
     ty += 48;
@@ -1268,26 +1268,36 @@
     var kicker = "";
     // Prayer titles ("Prayer Point 3 of 12") act as their own kicker.
 
+    // Position first — it shapes the card (Dawn, July 31):
+    //   left  = classic card, gold bar on the LEFT edge
+    //   right = mirrored card, gold bar on the RIGHT edge
+    //   center = LONG banner (~2/3 of the frame), gold bars TOP + BOTTOM
+    var pos = /^[tb][lcr]$/.test(scene.cardPos) ? scene.cardPos : "bl";
+    var ph = pos.charAt(1);
+    var wide = ph === "c";
+    var bannerW = 1300; // the long center banner (of 1920)
+    var textMaxW = wide ? bannerW - CARD.padX * 2 : CARD.maxTextW;
+    var barPad = wide ? 8 : 0; // breathing room under the top/bottom gold bars
+
     var F = cardFonts();
     ctx.font = F.title;
-    var titleW = Math.min(ctx.measureText(card.title).width, CARD.maxTextW);
+    var titleW = Math.min(ctx.measureText(card.title).width, textMaxW);
     ctx.font = F.sub;
-    var lines = card.subtitle ? wrapCanvasText(card.subtitle, CARD.maxTextW, 5) : [];
+    var lines = card.subtitle ? wrapCanvasText(card.subtitle, textMaxW, 5) : [];
     var linesW = 0;
     lines.forEach(function (l) { linesW = Math.max(linesW, ctx.measureText(l).width); });
 
     var kickH = kicker ? 30 : 0;
-    var w = CARD.barW + CARD.padX * 2 + Math.max(titleW, linesW);
-    var h = CARD.padY * 2 + kickH + F.th +
+    var sideBar = wide ? 0 : CARD.barW;
+    var w = wide ? bannerW : sideBar + CARD.padX * 2 + Math.max(titleW, linesW);
+    var h = CARD.padY * 2 + barPad * 2 + kickH + F.th +
       (lines.length ? CARD.gap + lines.length * F.lh - (F.lh - 30) : 0);
 
-    // Position: tl/tc/tr/bl/bc/br — the console moves the card live.
-    var pos = /^[tb][lcr]$/.test(scene.cardPos) ? scene.cardPos : "bl";
-    var ph = pos.charAt(1);
     var x = ph === "l" ? 64 : ph === "r" ? W - 64 - w : (W - w) / 2;
     var y = pos.charAt(0) === "t" ? 64 : H - 64 - h;
 
-    return { x: x, y: y, w: w, h: h, kicker: kicker, kickH: kickH, lines: lines };
+    return { x: x, y: y, w: w, h: h, kicker: kicker, kickH: kickH, lines: lines,
+             ph: ph, barPad: barPad, textMaxW: textMaxW };
   }
 
   function drawCard(box) {
@@ -1314,11 +1324,20 @@
     roundRect(box.x, box.y, box.w, box.h, 10);
     ctx.clip();
     ctx.fillStyle = C.gold;
-    ctx.fillRect(box.x, box.y, CARD.barW, box.h);
+    if (box.ph === "c") {
+      // Long banner: gold bars run the full width, top and bottom.
+      ctx.fillRect(box.x, box.y, box.w, CARD.barW);
+      ctx.fillRect(box.x, box.y + box.h - CARD.barW, box.w, CARD.barW);
+    } else if (box.ph === "r") {
+      // Right position mirrors the card: the bar rides the right edge.
+      ctx.fillRect(box.x + box.w - CARD.barW, box.y, CARD.barW, box.h);
+    } else {
+      ctx.fillRect(box.x, box.y, CARD.barW, box.h);
+    }
     ctx.restore();
 
-    var tx = box.x + CARD.barW + CARD.padX;
-    var ty = box.y + CARD.padY;
+    var tx = box.x + (box.ph === "l" ? CARD.barW : 0) + CARD.padX;
+    var ty = box.y + CARD.padY + (box.barPad || 0);
 
     if (box.kicker) {
       ctx.font = CARD.kickFont;
@@ -1332,11 +1351,12 @@
     var st2 = scene.cardStyle || {};
     var align = st2.align || "left";
     if (align === "center") { ctx.textAlign = "center"; tx = box.x + box.w / 2; }
-    else if (align === "right") { ctx.textAlign = "right"; tx = box.x + box.w - CARD.padX; }
+    else if (align === "right") { ctx.textAlign = "right"; tx = box.x + box.w - CARD.padX - (box.ph === "r" ? CARD.barW : 0); }
     ctx.font = F2.title;
-    ctx.fillStyle = card.kind === "prayer" ? "#FF7A3D" : (st2.titleColor || "#F0E6D0");
+    // Prayer counter line ("Prayer Point n of m") is GOLD (Dawn, July 31).
+    ctx.fillStyle = card.kind === "prayer" ? C.goldLight : (st2.titleColor || "#F0E6D0");
     ctx.textBaseline = "top";
-    ctx.fillText(card.title, tx, ty, CARD.maxTextW);
+    ctx.fillText(card.title, tx, ty, box.textMaxW || CARD.maxTextW);
     ty += F2.th;
 
     if (box.lines.length) {
