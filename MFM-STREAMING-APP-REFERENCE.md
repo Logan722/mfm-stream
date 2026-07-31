@@ -508,6 +508,15 @@ C command rail / D theater) and picked **B**. Shipped:
   after Power off → Resize → Power on.
 - HIDDEN=1 was found in her .env and removed (see root-cause entry above).
 
+### STANDING REMINDER (Dawn's request, July 31) — say this at session start/end
+- **End of a work/stream session:** on the droplet run
+  `cd mfm-stream/runner && docker compose down` (stops CPU burn + Daily
+  participant-minutes), then close the console tab. Powering off the droplet
+  saves nothing (DO bills powered-off droplets).
+- **Start of a session:** `cd mfm-stream && git pull && cd runner && docker
+  compose up -d --build`, then open the console and hard-refresh once.
+- Every chat working this app should proactively remind Dawn of this ritual.
+
 ### CONFIRMED (July 31, ~11pm): VERTICAL=0 + superfast → YouTube "Excellent"
 - Same 4-vCPU shared droplet went from "Poor"/2fps to **Excellent** — CPU
   starvation confirmed as the whole story. 16:9 works on the $48 box.
