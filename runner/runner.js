@@ -39,6 +39,10 @@ const FPS = Number(process.env.FPS || 30);
 // veryfast with a barely visible quality cost at our 5000k bitrate —
 // the right default for shared-vCPU droplets (July 31: YouTube got 2fps).
 const PRESET = process.env.X264_PRESET || "superfast";
+// 16:9 video bitrate in kbps. 8000 reads crisp for worship (movement, music)
+// and sits comfortably in YouTube's recommended range; the dedicated-CPU box
+// encodes it without breaking a sweat. Override with BITRATE in .env.
+const BITRATE = Math.min(20000, Math.max(1500, Number(process.env.BITRATE || 8000)));
 // VERTICAL=1: the display widens to 3000×1920 — program 16:9 at (0,0),
 // portrait 9:16 at x=1920 — and a second FFmpeg can push Instagram.
 // ⚠️ The wide display nearly triples the x11grab pixel load. If you're not
@@ -108,8 +112,14 @@ function engineUrl() {
 
 async function launchBrowser() {
   log("launching Chromium on display", DISPLAY);
-  browser = await chromium.launch({
+  // launchPersistentContext, NOT launch+newPage: with launch(), the --kiosk
+  // flag applies to Chromium's FIRST window, and newPage() then opens a
+  // SECOND, non-kiosk window — whose tab strip + address bar showed on the
+  // stream (viewers saw a browser strip — Dawn, July 31). The persistent
+  // context's initial page IS the kiosk window; we navigate that one.
+  browser = await chromium.launchPersistentContext("/tmp/mfm-chrome-profile", {
     headless: false, // real window on Xvfb — FFmpeg captures the display
+    viewport: null,
     args: [
       "--no-sandbox",
       "--kiosk",
@@ -124,7 +134,7 @@ async function launchBrowser() {
     ],
   });
 
-  page = await browser.newPage({ viewport: null });
+  page = browser.pages()[0] || (await browser.newPage());
 
   await page.exposeFunction("__mfmRunner", (cmdJson) => {
     try {
@@ -266,10 +276,11 @@ function startFfmpeg(urls) {
     ...(WIDE ? ["-vf", "crop=1920:1080:0:0"] : []),
     // Encode once, push everywhere
     "-c:v", "libx264", "-preset", PRESET, "-tune", "zerolatency",
-    "-b:v", "5000k", "-maxrate", "5500k", "-bufsize", "10000k",
+    "-b:v", `${BITRATE}k`, "-maxrate", `${Math.round(BITRATE * 1.1)}k`, "-bufsize", `${BITRATE * 2}k`,
     "-pix_fmt", "yuv420p", "-g", String(FPS * 2), "-keyint_min", String(FPS),
     "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2",
     "-map", "0:v", "-map", "1:a",
+    "-progress", "pipe:1", // per-second encoder vitals — parsed into ffmpegInfo.stats
     "-f", "tee", tee,
   ];
 
@@ -286,6 +297,33 @@ function startFfmpeg(urls) {
   ffmpeg.stderr.on("data", (d) => {
     const line = String(d).trim();
     if (line) { log("ffmpeg:", line.slice(0, 300)); pushTail(ffmpegErrTail, line); }
+  });
+
+  // Parse -progress blocks (key=value lines, one block per second) into
+  // stats the console's Stream Health strip shows: fps, bitrate, speed
+  // (1.00x = keeping up in real time), dropped/duplicated frames.
+  let statBuf = "";
+  ffmpeg.stdout.on("data", (d) => {
+    statBuf += String(d);
+    let end;
+    while ((end = statBuf.indexOf("progress=")) !== -1) {
+      const nl = statBuf.indexOf("\n", end);
+      if (nl === -1) break;
+      const block = statBuf.slice(0, nl);
+      statBuf = statBuf.slice(nl + 1);
+      const get = (k) => {
+        const m = block.match(new RegExp("(?:^|\\n)" + k + "=([^\\n]+)"));
+        return m ? m[1].trim() : "";
+      };
+      ffmpegInfo.stats = {
+        fps: Math.round(parseFloat(get("fps")) || 0),
+        kbps: Math.round(parseFloat(get("bitrate")) || 0),
+        speed: parseFloat(get("speed")) || 0,
+        drops: Number(get("drop_frames")) || 0,
+        dups: Number(get("dup_frames")) || 0,
+      };
+    }
+    if (statBuf.length > 8192) statBuf = statBuf.slice(-4096);
   });
 
   ffmpeg.on("exit", (code, signal) => {
@@ -395,11 +433,37 @@ http.createServer((req, res) => {
       ffmpegVert: ffmpegVertInfo,
       vertical: WIDE,
     }, null, 2));
+  } else if (req.url === "/snap") {
+    // One JPEG frame of the ACTUAL virtual display — exactly what FFmpeg
+    // grabs and viewers receive. Open http://IP:8080/snap to verify the
+    // frame is clean (no browser chrome, correct composition).
+    const snap = spawn("ffmpeg", [
+      "-hide_banner", "-loglevel", "error",
+      "-f", "x11grab", "-draw_mouse", "0",
+      "-video_size", `${DISP_W}x${DISP_H}`, "-i", DISPLAY,
+      "-frames:v", "1", "-q:v", "4", "-f", "mjpeg", "pipe:1",
+    ]);
+    const chunks = [];
+    snap.stdout.on("data", (c) => chunks.push(c));
+    snap.on("exit", (code) => {
+      if (code === 0 && chunks.length) {
+        res.writeHead(200, { "Content-Type": "image/jpeg" });
+        res.end(Buffer.concat(chunks));
+      } else {
+        res.writeHead(500, { "Content-Type": "text/plain" });
+        res.end("snapshot failed");
+      }
+    });
+    setTimeout(() => { try { snap.kill("SIGKILL"); } catch (e) { /* fine */ } }, 8000);
   } else {
     res.writeHead(404);
     res.end();
   }
 }).listen(HEALTH_PORT, () => log("health endpoint on :" + HEALTH_PORT + "/health"));
+
+// While streaming, ship fresh encoder stats to the page every 3s — they ride
+// the engine's heartbeats into the console's Stream Health strip.
+setInterval(() => { if (ffmpegInfo.running && ffmpegInfo.stats) pushFfmpegState(); }, 3000);
 
 /* ---------------- Lifecycle ---------------- */
 

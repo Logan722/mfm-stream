@@ -530,6 +530,26 @@ C command rail / D theater) and picked **B**. Shipped:
   viewport:null, same args) and use its first page instead of newPage — or
   offset the x11grab below the chrome. Verify by screenshotting the display.
 
+### Bundle (July 31, afternoon) — kiosk fix · health strip · per-kind styles · bitrate
+- **Browser strip on stream FIXED:** runner.js now uses `launchPersistentContext`
+  (kiosk window IS the page) instead of launch+newPage (which opened a second,
+  non-kiosk window). Verify after deploy via `http://IP:8080/snap` — a JPEG of
+  the exact display FFmpeg grabs.
+- **Stream Health strip** in the Engine tab: FFmpeg `-progress` vitals (fps,
+  bitrate, speed, drops) ride heartbeats → green/amber/red verdict ("speed <
+  0.9x = falling behind" would have caught the 2fps night). Plus deep-link
+  buttons to YouTube Studio / FB Live Producer. `/snap` endpoint added.
+- **Bitrate:** default 8000k (was 5000k), `BITRATE` env knob (YouTube asked for
+  more; dedicated box handles it).
+- **Per-kind card styles (Dawn):** scene.cardStyles {l3, prayer, scripture},
+  each with pos/align/titleSize/bodySize (s-m-l-xl, INDEPENDENT — body is what
+  people read)/colors/lift (0-300px raise). Style card per tab (.cs-card
+  data-kind). Engine defaults: prayer+scripture = center banner, S gold title,
+  L body. Legacy cardStyle/cardPos still accepted by engine normalizeScene.
+- **Prayer points NOT persisted anymore** (Dawn: fresh list each service).
+- Engine BUILD jul31-n17. Deploy = Netlify + droplet `git pull && docker
+  compose up -d --build` (runner changed → full rebuild).
+
 ### NEXT SESSION — top of queue (July 30, end of day)
 1. **Card style controls, modeled on Dawn's OBS "Lower Thirds" plugin screenshot**
    (analyzed): text alignment L/C/R, font size, line spacing, font choice, BOLD toggles,

@@ -723,6 +723,9 @@ body.deck-hidden .deck-tabs { display: none; }
 
 .p-btn:hover:not(:disabled) { background: var(--gold-glow); color: var(--cream); }
 
+/* Links styled as buttons (Stream health deep-links) */
+a.p-btn { text-decoration: none; display: inline-block; }
+
 .p-btn:disabled {
   color: var(--text-dim-navy);
   border-color: rgba(106, 122, 150, 0.25);

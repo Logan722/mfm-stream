@@ -170,30 +170,41 @@
               </div>
               <p class="b-hint">One card shows at a time &mdash; lower third, prayer point, or scripture. The newest push wins.</p>
             </div>
-            <div class="dp-card">
-              <p class="b-row-label">Card style &mdash; all cards</p>
+            <div class="dp-card cs-card" data-kind="l3">
+              <p class="b-row-label">Card style &mdash; lower third</p>
               <p class="b-sublabel">Position on screen</p>
-              <div class="b-modes" id="cs-pos">
-                <button type="button" class="p-btn cp-btn active" data-pos="l">Left</button>
-                <button type="button" class="p-btn cp-btn" data-pos="c">Center</button>
-                <button type="button" class="p-btn cp-btn" data-pos="r">Right</button>
+              <div class="b-modes cs-pos">
+                <button type="button" class="p-btn active" data-pos="l">Left</button>
+                <button type="button" class="p-btn" data-pos="c">Center</button>
+                <button type="button" class="p-btn" data-pos="r">Right</button>
               </div>
               <p class="b-sublabel">Text alignment</p>
-              <div class="b-modes" id="cs-align">
-                <button type="button" class="p-btn al-btn active" data-al="left">Left</button>
-                <button type="button" class="p-btn al-btn" data-al="center">Center</button>
-                <button type="button" class="p-btn al-btn" data-al="right">Right</button>
+              <div class="b-modes cs-align">
+                <button type="button" class="p-btn active" data-al="left">Left</button>
+                <button type="button" class="p-btn" data-al="center">Center</button>
+                <button type="button" class="p-btn" data-al="right">Right</button>
               </div>
-              <div class="b-modes mt6" id="cs-size">
-                <button type="button" class="p-btn sz-btn" data-sz="s">A&minus;</button>
-                <button type="button" class="p-btn sz-btn active" data-sz="m">A</button>
-                <button type="button" class="p-btn sz-btn" data-sz="l">A+</button>
+              <p class="b-sublabel">Title size</p>
+              <div class="b-modes cs-tsize">
+                <button type="button" class="p-btn" data-sz="s">S</button>
+                <button type="button" class="p-btn active" data-sz="m">M</button>
+                <button type="button" class="p-btn" data-sz="l">L</button>
+                <button type="button" class="p-btn" data-sz="xl">XL</button>
               </div>
+              <p class="b-sublabel">Body size</p>
+              <div class="b-modes cs-bsize">
+                <button type="button" class="p-btn" data-sz="s">S</button>
+                <button type="button" class="p-btn active" data-sz="m">M</button>
+                <button type="button" class="p-btn" data-sz="l">L</button>
+                <button type="button" class="p-btn" data-sz="xl">XL</button>
+              </div>
+              <p class="b-sublabel">Height on screen &mdash; slide right to raise the card</p>
+              <input type="range" class="b-range cs-lift" min="0" max="300" value="0">
               <div class="b-modes mt6">
-                <input type="color" id="cs-title" value="#F0E6D0" title="Title color">
-                <input type="color" id="cs-sub" value="#B9C4DA" title="Second-line color">
+                <input type="color" class="cs-tcolor" value="#F0E6D0" title="Title color">
+                <input type="color" class="cs-bcolor" value="#B9C4DA" title="Body color">
               </div>
-              <p class="b-hint">Position moves the card for every kind, live &mdash; Center runs the long banner.</p>
+              <p class="b-hint">This look applies to LOWER THIRDS only &mdash; live. Center runs the long banner.</p>
             </div>
           </section>
 
@@ -208,7 +219,43 @@
                 <button type="button" class="p-btn" id="pp-next">&#9654;</button>
                 <button type="button" class="p-btn" id="pp-hide">Hide</button>
               </div>
-              <p class="b-hint">Points are saved on this device. Prev / Next push the change straight to the stream.</p>
+              <p class="b-hint">Prev / Next push the change straight to the stream. Points are NOT saved &mdash; paste a fresh list each service.</p>
+            </div>
+            <div class="dp-card cs-card" data-kind="prayer">
+              <p class="b-row-label">Card style &mdash; prayer points</p>
+              <p class="b-sublabel">Position on screen</p>
+              <div class="b-modes cs-pos">
+                <button type="button" class="p-btn" data-pos="l">Left</button>
+                <button type="button" class="p-btn active" data-pos="c">Center</button>
+                <button type="button" class="p-btn" data-pos="r">Right</button>
+              </div>
+              <p class="b-sublabel">Text alignment</p>
+              <div class="b-modes cs-align">
+                <button type="button" class="p-btn active" data-al="left">Left</button>
+                <button type="button" class="p-btn" data-al="center">Center</button>
+                <button type="button" class="p-btn" data-al="right">Right</button>
+              </div>
+              <p class="b-sublabel">Title size &mdash; the "Prayer Point n of m" line</p>
+              <div class="b-modes cs-tsize">
+                <button type="button" class="p-btn active" data-sz="s">S</button>
+                <button type="button" class="p-btn" data-sz="m">M</button>
+                <button type="button" class="p-btn" data-sz="l">L</button>
+                <button type="button" class="p-btn" data-sz="xl">XL</button>
+              </div>
+              <p class="b-sublabel">Body size &mdash; the prayer point itself</p>
+              <div class="b-modes cs-bsize">
+                <button type="button" class="p-btn" data-sz="s">S</button>
+                <button type="button" class="p-btn" data-sz="m">M</button>
+                <button type="button" class="p-btn active" data-sz="l">L</button>
+                <button type="button" class="p-btn" data-sz="xl">XL</button>
+              </div>
+              <p class="b-sublabel">Height on screen &mdash; slide right to raise the card</p>
+              <input type="range" class="b-range cs-lift" min="0" max="300" value="0">
+              <div class="b-modes mt6">
+                <input type="color" class="cs-tcolor" value="#D4A853" title="Title color">
+                <input type="color" class="cs-bcolor" value="#F0E6D0" title="Body color">
+              </div>
+              <p class="b-hint">This look applies to PRAYER POINT cards only &mdash; live.</p>
             </div>
           </section>
 
@@ -217,6 +264,12 @@
               <p class="b-row-label">Engine &mdash; program feed</p>
               <p class="eng-status"><span class="eng-dot" id="eng-dot"></span> <span id="eng-status">Engine offline</span></p>
               <button type="button" class="p-btn" id="eng-open">Open engine page</button>
+              <p class="b-row-label">Stream health</p>
+              <p class="eng-status"><span class="eng-dot" id="sh-dot"></span> <span id="sh-text">Not streaming</span></p>
+              <div class="b-modes mt6">
+                <a class="p-btn" href="https://studio.youtube.com" target="_blank" rel="noopener">YouTube Studio</a>
+                <a class="p-btn" href="https://www.facebook.com/live/producer" target="_blank" rel="noopener">FB Producer</a>
+              </div>
               <p class="error" id="eng-alert" role="alert" hidden></p>
               <p class="b-hint" id="eng-hint">The engine paints the broadcast &mdash; real brand fonts,
                  boxed gold cards, instant switches &mdash; and Go Live locks the stream to it.
@@ -301,6 +354,42 @@
               <button type="button" class="p-btn" id="sc-hide">Hide</button>
             </div>
             <p class="b-hint" id="sc-status">King James Version &middot; bible-api.com</p>
+            </div>
+            <div class="dp-card cs-card" data-kind="scripture">
+              <p class="b-row-label">Card style &mdash; scripture</p>
+              <p class="b-sublabel">Position on screen</p>
+              <div class="b-modes cs-pos">
+                <button type="button" class="p-btn" data-pos="l">Left</button>
+                <button type="button" class="p-btn active" data-pos="c">Center</button>
+                <button type="button" class="p-btn" data-pos="r">Right</button>
+              </div>
+              <p class="b-sublabel">Text alignment</p>
+              <div class="b-modes cs-align">
+                <button type="button" class="p-btn active" data-al="left">Left</button>
+                <button type="button" class="p-btn" data-al="center">Center</button>
+                <button type="button" class="p-btn" data-al="right">Right</button>
+              </div>
+              <p class="b-sublabel">Title size &mdash; the reference line</p>
+              <div class="b-modes cs-tsize">
+                <button type="button" class="p-btn active" data-sz="s">S</button>
+                <button type="button" class="p-btn" data-sz="m">M</button>
+                <button type="button" class="p-btn" data-sz="l">L</button>
+                <button type="button" class="p-btn" data-sz="xl">XL</button>
+              </div>
+              <p class="b-sublabel">Body size &mdash; the verse itself</p>
+              <div class="b-modes cs-bsize">
+                <button type="button" class="p-btn" data-sz="s">S</button>
+                <button type="button" class="p-btn" data-sz="m">M</button>
+                <button type="button" class="p-btn active" data-sz="l">L</button>
+                <button type="button" class="p-btn" data-sz="xl">XL</button>
+              </div>
+              <p class="b-sublabel">Height on screen &mdash; slide right to raise the card</p>
+              <input type="range" class="b-range cs-lift" min="0" max="300" value="0">
+              <div class="b-modes mt6">
+                <input type="color" class="cs-tcolor" value="#F0E6D0" title="Title color">
+                <input type="color" class="cs-bcolor" value="#B9C4DA" title="Body color">
+              </div>
+              <p class="b-hint">This look applies to SCRIPTURE cards only &mdash; live.</p>
             </div>
           </section>
 

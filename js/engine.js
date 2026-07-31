@@ -48,7 +48,7 @@
 
   var W = 1920, H = 1080, FPS = 30;
   var FADE = 0.22; // card fade seconds
-  var BUILD = "jul31-n15"; // shown in the console Engine panel — stale-engine detector
+  var BUILD = "jul31-n17"; // shown in the console Engine panel — stale-engine detector
 
   /* ---------- Royal Flame tokens ---------- */
   var C = {
@@ -109,8 +109,22 @@
   }
 
   /* ---------- State ---------- */
+  /* Per-kind card styles (Dawn, July 31): each card kind has its own look —
+     position, alignment, independent title/body sizes, colors, and lift
+     (how far above the bottom resting point it sits). */
+  function defaultCardStyles() {
+    return {
+      l3:        { pos: "bl", align: "left", titleSize: "m", bodySize: "m",
+                   titleColor: "#F0E6D0", subColor: "#B9C4DA", lift: 0 },
+      prayer:    { pos: "bc", align: "left", titleSize: "s", bodySize: "l",
+                   titleColor: "#D4A853", subColor: "#F0E6D0", lift: 0 },
+      scripture: { pos: "bc", align: "left", titleSize: "s", bodySize: "l",
+                   titleColor: "#F0E6D0", subColor: "#B9C4DA", lift: 0 },
+    };
+  }
+
   var scene = { mode: "grid", spot: null, card: null, cardPos: "bl", slate: null, labels: false,
-                cardStyle: { align: "left", size: "m", titleColor: "#F2F2F2", subColor: "#A8A8A8" } };
+                cardStyles: defaultCardStyles() };
   var cardDraw = { card: null, alpha: 0 };
 
   /* Studio mode (E3): a second, STAGED scene the console edits without
@@ -611,7 +625,8 @@
       ffmpegState = {
         running: !!ev.ffmpeg.running,
         startedAt: Number(ev.ffmpeg.startedAt) || 0,
-        detail: String(ev.ffmpeg.detail || "").slice(0, 200),
+        detail: String(ev.ffmpeg.detail || "").slice(0, 300),
+        stats: ev.ffmpeg.stats || null, // encoder vitals → console Stream Health
       };
     }
     if (ev.ffmpegVert) {
@@ -634,16 +649,45 @@
     };
   }
 
+  function normalizeStyle(raw, def) {
+    raw = raw || {};
+    var SIZES = { s: 1, m: 1, l: 1, xl: 1 };
+    return {
+      pos: /^[tb][lcr]$/.test(raw.pos || "") ? raw.pos : def.pos,
+      align: { left: 1, center: 1, right: 1 }[raw.align] ? raw.align : def.align,
+      titleSize: SIZES[raw.titleSize] ? raw.titleSize : def.titleSize,
+      bodySize: SIZES[raw.bodySize] ? raw.bodySize : def.bodySize,
+      titleColor: /^#[0-9a-fA-F]{6}$/.test(raw.titleColor || "") ? raw.titleColor : def.titleColor,
+      subColor: /^#[0-9a-fA-F]{6}$/.test(raw.subColor || "") ? raw.subColor : def.subColor,
+      lift: Math.max(0, Math.min(400, Number(raw.lift) || 0)),
+    };
+  }
+
   function normalizeScene(sc, base) {
     var out = base ? copyScene(base) : { mode: "grid", spot: null, card: null, cardPos: "bl", slate: null, labels: false };
     out.labels = !!sc.labels; // Dawn (July 30): names OFF the broadcast by default
-    var cs2 = sc.cardStyle || {};
-    out.cardStyle = {
-      align: { left: 1, center: 1, right: 1 }[cs2.align] ? cs2.align : "left",
-      size: { s: 1, m: 1, l: 1 }[cs2.size] ? cs2.size : "m",
-      titleColor: /^#[0-9a-fA-F]{6}$/.test(cs2.titleColor || "") ? cs2.titleColor : "#F2F2F2",
-      subColor: /^#[0-9a-fA-F]{6}$/.test(cs2.subColor || "") ? cs2.subColor : "#A8A8A8",
+
+    // Per-kind styles. Back-compat: an old console sending a single
+    // cardStyle + cardPos gets that look applied to every kind.
+    var defs = defaultCardStyles();
+    var incoming = sc.cardStyles || {};
+    if (!sc.cardStyles && (sc.cardStyle || sc.cardPos)) {
+      var legacy = sc.cardStyle || {};
+      incoming = {};
+      ["l3", "prayer", "scripture"].forEach(function (k) {
+        incoming[k] = {
+          pos: sc.cardPos, align: legacy.align,
+          titleSize: legacy.size, bodySize: legacy.size,
+          titleColor: legacy.titleColor, subColor: legacy.subColor,
+        };
+      });
+    }
+    out.cardStyles = {
+      l3: normalizeStyle(incoming.l3, defs.l3),
+      prayer: normalizeStyle(incoming.prayer, defs.prayer),
+      scripture: normalizeStyle(incoming.scripture, defs.scripture),
     };
+
     if (MODES[sc.mode]) out.mode = sc.mode;
     out.spot = sc.spot && people[sc.spot] ? sc.spot : null;
     out.card = normalizeCard(sc.card);
@@ -1247,20 +1291,28 @@
   };
 
   /* Measure the card without drawing — labels use the rect to step aside. */
-  var CARD_SIZES = {
-    s: { t: 36, sub: 26, lh: 34, th: 44 },
-    m: { t: 44, sub: 30, lh: 40, th: 52 },
-    l: { t: 56, sub: 36, lh: 48, th: 66 },
+  // Title and body scale INDEPENDENTLY (Dawn, July 31): the body is what the
+  // congregation actually reads on prayer points and scripture.
+  var TITLE_SIZES = {
+    s: { t: 36, th: 44 }, m: { t: 44, th: 52 }, l: { t: 56, th: 66 }, xl: { t: 68, th: 80 },
+  };
+  var BODY_SIZES = {
+    s: { sub: 26, lh: 34 }, m: { sub: 30, lh: 40 }, l: { sub: 36, lh: 48 }, xl: { sub: 44, lh: 58 },
   };
 
-  function cardFonts() {
-    var st = (scene.cardStyle && CARD_SIZES[scene.cardStyle.size]) ? scene.cardStyle : { size: "m" };
-    var z = CARD_SIZES[st.size] || CARD_SIZES.m;
+  function styleFor(kind) {
+    var all = scene.cardStyles || defaultCardStyles();
+    return all[kind] || all.l3 || defaultCardStyles().l3;
+  }
+
+  function cardFonts(st) {
+    var tz = TITLE_SIZES[st.titleSize] || TITLE_SIZES.m;
+    var bz = BODY_SIZES[st.bodySize] || BODY_SIZES.m;
     return {
-      title: "650 " + z.t + "px " + SERIF, // Fraunces — the Royal Flame voice
-      sub: "400 " + z.sub + "px " + SANS,
-      lh: z.lh,
-      th: z.th,
+      title: "650 " + tz.t + "px " + SERIF, // Fraunces — the Royal Flame voice
+      sub: "400 " + bz.sub + "px " + SANS,
+      lh: bz.lh,
+      th: tz.th,
     };
   }
 
@@ -1272,14 +1324,16 @@
     //   left  = classic card, gold bar on the LEFT edge
     //   right = mirrored card, gold bar on the RIGHT edge
     //   center = LONG banner (~2/3 of the frame), gold bars TOP + BOTTOM
-    var pos = /^[tb][lcr]$/.test(scene.cardPos) ? scene.cardPos : "bl";
+    // Each card KIND carries its own style (position, sizes, colors, lift).
+    var st = styleFor(card.kind);
+    var pos = /^[tb][lcr]$/.test(st.pos) ? st.pos : "bl";
     var ph = pos.charAt(1);
     var wide = ph === "c";
     var bannerW = 1300; // the long center banner (of 1920)
     var textMaxW = wide ? bannerW - CARD.padX * 2 : CARD.maxTextW;
     var barPad = wide ? 8 : 0; // breathing room under the top/bottom gold bars
 
-    var F = cardFonts();
+    var F = cardFonts(st);
     ctx.font = F.title;
     var titleW = Math.min(ctx.measureText(card.title).width, textMaxW);
     ctx.font = F.sub;
@@ -1295,6 +1349,8 @@
 
     var x = ph === "l" ? 64 : ph === "r" ? W - 64 - w : (W - w) / 2;
     var y = pos.charAt(0) === "t" ? 64 : H - 64 - h;
+    // Lift: raise the card off its bottom resting point (Dawn, July 31)
+    if (pos.charAt(0) !== "t" && st.lift) y = Math.max(64, y - st.lift);
 
     return { x: x, y: y, w: w, h: h, kicker: kicker, kickH: kickH, lines: lines,
              ph: ph, barPad: barPad, textMaxW: textMaxW };
@@ -1347,14 +1403,14 @@
       ty += box.kickH;
     }
 
-    var F2 = cardFonts();
-    var st2 = scene.cardStyle || {};
+    var st2 = styleFor(card.kind);
+    var F2 = cardFonts(st2);
     var align = st2.align || "left";
     if (align === "center") { ctx.textAlign = "center"; tx = box.x + box.w / 2; }
     else if (align === "right") { ctx.textAlign = "right"; tx = box.x + box.w - CARD.padX - (box.ph === "r" ? CARD.barW : 0); }
     ctx.font = F2.title;
-    // Prayer counter line ("Prayer Point n of m") is GOLD (Dawn, July 31).
-    ctx.fillStyle = card.kind === "prayer" ? C.goldLight : (st2.titleColor || "#F0E6D0");
+    // Colors come from the per-kind style — prayer's default title is gold.
+    ctx.fillStyle = st2.titleColor || "#F0E6D0";
     ctx.textBaseline = "top";
     ctx.fillText(card.title, tx, ty, box.textMaxW || CARD.maxTextW);
     ty += F2.th;
@@ -1362,7 +1418,7 @@
     if (box.lines.length) {
       ty += CARD.gap;
       ctx.font = F2.sub;
-      ctx.fillStyle = card.kind === "prayer" ? "#F0E6D0" : (st2.subColor || "#B9C4DA");
+      ctx.fillStyle = st2.subColor || "#B9C4DA";
       box.lines.forEach(function (l) {
         ctx.fillText(l, tx, ty);
         ty += F2.lh;
@@ -1572,7 +1628,10 @@
     }
     var mode = qs.get("mode");
     if (MODES[mode]) scene.mode = mode;
-    if (/^[tb][lcr]$/.test(qs.get("pos") || "")) scene.cardPos = qs.get("pos");
+    if (/^[tb][lcr]$/.test(qs.get("pos") || "")) {
+      scene.cardPos = qs.get("pos");
+      Object.keys(scene.cardStyles).forEach(function (k) { scene.cardStyles[k].pos = qs.get("pos"); });
+    }
     if (SLATES[qs.get("slate")]) scene.slate = { kind: qs.get("slate"), line: qs.get("line") || "" };
     if (qs.get("labels") === "1") scene.labels = true;
     if (qs.get("spot") === "1") scene.spot = "demo-0";

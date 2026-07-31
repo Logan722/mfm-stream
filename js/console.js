@@ -134,14 +134,40 @@
   };
 
   /* ---------- Scene: what the 16:9 broadcast shows ---------- */
+  /* Per-kind card styles (Dawn, July 31): lower thirds, prayer points and
+     scripture each carry their own position, alignment, title/body sizes,
+     colors and lift. Kept in sync with defaultCardStyles() in engine.js. */
+  function defaultCardStyles() {
+    return {
+      l3:        { pos: "bl", align: "left", titleSize: "m", bodySize: "m",
+                   titleColor: "#F0E6D0", subColor: "#B9C4DA", lift: 0 },
+      prayer:    { pos: "bc", align: "left", titleSize: "s", bodySize: "l",
+                   titleColor: "#D4A853", subColor: "#F0E6D0", lift: 0 },
+      scripture: { pos: "bc", align: "left", titleSize: "s", bodySize: "l",
+                   titleColor: "#F0E6D0", subColor: "#B9C4DA", lift: 0 },
+    };
+  }
+
+  function styleOf(sceneObj, kind) {
+    if (!sceneObj.cardStyles) sceneObj.cardStyles = defaultCardStyles();
+    if (!sceneObj.cardStyles[kind]) sceneObj.cardStyles[kind] = defaultCardStyles()[kind] || defaultCardStyles().l3;
+    return sceneObj.cardStyles[kind];
+  }
+
+  /* The showing card's position — for the legacy VCS fallback + old fields. */
+  function legacyPos(sceneObj) {
+    var kind = sceneObj.card ? sceneObj.card.kind : "l3";
+    var st = (sceneObj.cardStyles && sceneObj.cardStyles[kind]) || defaultCardStyles().l3;
+    return /^[tb][lcr]$/.test(st.pos || "") ? st.pos : "bl";
+  }
+
   var scene = {
     card: null,       // null | { kind, title, subtitle }
-    cardPos: "bl",    // tl | tc | tr | bl | bc | br — applies to every card
     mode: "grid",     // grid | dominant | split | pip
     spot: null,       // null | session_id featured full-screen
     slate: null,      // null | { kind: soon|brb|end, line }
     labels: false,    // names on the STREAM (room always shows them)
-    cardStyle: { align: "left", size: "m", titleColor: "#F0E6D0", subColor: "#B9C4DA" },
+    cardStyles: defaultCardStyles(),
   };
   var ppIdx = 0;
 
@@ -231,12 +257,36 @@
     var savedOv = JSON.parse(localStorage.getItem(ovStoreKey) || "{}");
     if (els.l3Name && savedOv.l3name) els.l3Name.value = savedOv.l3name;
     if (els.l3Role && savedOv.l3role) els.l3Role.value = savedOv.l3role;
-    if (els.ppList && savedOv.points) els.ppList.value = savedOv.points;
-    if (typeof savedOv.ppIdx === "number") ppIdx = savedOv.ppIdx;
-    if (/^[tb][lcr]$/.test(savedOv.cardPos || "")) scene.cardPos = savedOv.cardPos;
-    if (/^t/.test(scene.cardPos)) scene.cardPos = "b" + scene.cardPos.charAt(1); // bottom, always
+    // Prayer points are deliberately NOT restored (Dawn, July 31) — every
+    // service starts with a clean list.
+    if (savedOv.cardStyles) {
+      // New shape: per-kind styles.
+      ["l3", "prayer", "scripture"].forEach(function (k) {
+        if (savedOv.cardStyles[k]) {
+          var st = styleOf(scene, k);
+          var raw = savedOv.cardStyles[k];
+          if (/^[tb][lcr]$/.test(raw.pos || "")) st.pos = "b" + raw.pos.charAt(1); // bottom, always
+          if ({ left: 1, center: 1, right: 1 }[raw.align]) st.align = raw.align;
+          if ({ s: 1, m: 1, l: 1, xl: 1 }[raw.titleSize]) st.titleSize = raw.titleSize;
+          if ({ s: 1, m: 1, l: 1, xl: 1 }[raw.bodySize]) st.bodySize = raw.bodySize;
+          if (/^#[0-9a-fA-F]{6}$/.test(raw.titleColor || "")) st.titleColor = raw.titleColor;
+          if (/^#[0-9a-fA-F]{6}$/.test(raw.subColor || "")) st.subColor = raw.subColor;
+          st.lift = Math.max(0, Math.min(300, Number(raw.lift) || 0));
+        }
+      });
+    } else if (savedOv.cardStyle || savedOv.cardPos) {
+      // Old single-style save: apply it to every kind once.
+      ["l3", "prayer", "scripture"].forEach(function (k) {
+        var st = styleOf(scene, k);
+        if (/^[tb][lcr]$/.test(savedOv.cardPos || "")) st.pos = "b" + savedOv.cardPos.charAt(1);
+        var cs3 = savedOv.cardStyle || {};
+        if ({ left: 1, center: 1, right: 1 }[cs3.align]) st.align = cs3.align;
+        if ({ s: 1, m: 1, l: 1 }[cs3.size]) { st.titleSize = cs3.size; st.bodySize = cs3.size; }
+        if (/^#[0-9a-fA-F]{6}$/.test(cs3.titleColor || "")) st.titleColor = cs3.titleColor;
+        if (/^#[0-9a-fA-F]{6}$/.test(cs3.subColor || "")) st.subColor = cs3.subColor;
+      });
+    }
     scene.labels = !!savedOv.labels;
-    if (savedOv.cardStyle) scene.cardStyle = savedOv.cardStyle;
     if (els.labelsOn) els.labelsOn.checked = scene.labels;
   } catch (e) { /* fine */ }
 
@@ -267,16 +317,14 @@
       localStorage.setItem(ovStoreKey, JSON.stringify({
         l3name: els.l3Name ? els.l3Name.value : "",
         l3role: els.l3Role ? els.l3Role.value : "",
-        points: els.ppList ? els.ppList.value : "",
-        ppIdx: ppIdx,
-        cardPos: scene.cardPos,
+        // prayer points intentionally not saved (Dawn, July 31)
         labels: scene.labels,
-        cardStyle: scene.cardStyle,
+        cardStyles: scene.cardStyles,
       }));
     } catch (e) { /* fine */ }
   }
 
-  ["ytOn", "ytKey", "yt2On", "yt2Key", "fbOn", "fbKey", "customOn", "customUrl", "igKey", "mdUrl", "l3Name", "l3Role", "ppList"]
+  ["ytOn", "ytKey", "yt2On", "yt2Key", "fbOn", "fbKey", "customOn", "customUrl", "igKey", "mdUrl", "l3Name", "l3Role"]
     .forEach(function (k) {
       if (els[k]) els[k].addEventListener("change", persistState);
     });
@@ -632,7 +680,8 @@
     if (!scn) return;
     sendCmd({
       cmd: cmd,
-      scene: { mode: scn.mode, spot: scn.spot, card: scn.card, cardPos: scn.cardPos, slate: scn.slate, labels: scn.labels, cardStyle: scn.cardStyle },
+      scene: { mode: scn.mode, spot: scn.spot, card: scn.card, cardStyles: scn.cardStyles,
+               cardPos: legacyPos(scn), slate: scn.slate, labels: scn.labels },
     });
   }
 
@@ -824,7 +873,45 @@
     if (els.liveTimer && cs.startedAt) els.liveTimer.textContent = fmtClock(cs.startedAt);
   }
 
+  /* ---------- Stream health strip (Dawn, July 31) ----------
+     Encoder vitals ride the engine heartbeats: fps, bitrate, speed
+     (1.00x = keeping up in real time), dropped frames. Green = healthy,
+     amber = straining, red = falling behind (the "2fps night" detector). */
+  function updateStreamHealth() {
+    var dot = document.getElementById("sh-dot");
+    var txt = document.getElementById("sh-text");
+    if (!dot || !txt) return;
+    var f = eng.lastState && eng.lastState.ffmpeg;
+    if (!f || !f.running) {
+      dot.className = "eng-dot";
+      txt.textContent = "Not streaming";
+      return;
+    }
+    var s = f.stats;
+    if (!s || !s.speed) {
+      dot.className = "eng-dot on";
+      txt.textContent = "Streaming — waiting for encoder vitals…";
+      return;
+    }
+    var mins = f.startedAt ? Math.floor((Date.now() - f.startedAt) / 60000) : 0;
+    var line = s.fps + " fps · " + (s.kbps >= 1000 ? (s.kbps / 1000).toFixed(1) + " Mbps" : s.kbps + " kbps") +
+      " · speed " + s.speed.toFixed(2) + "x" +
+      (s.drops ? " · " + s.drops + " dropped" : "") +
+      " · " + mins + " min";
+    if (s.speed >= 0.97) {
+      dot.className = "eng-dot on";
+      txt.textContent = line + " — healthy";
+    } else if (s.speed >= 0.9) {
+      dot.className = "eng-dot";
+      txt.textContent = line + " — straining, watch it";
+    } else {
+      dot.className = "eng-dot locked";
+      txt.textContent = line + " — FALLING BEHIND (viewers see stutter; CPU?)";
+    }
+  }
+
   function updateEnginePanel() {
+    updateStreamHealth();
     if (!els.engDot || !els.engStatus) return;
     var p = engineParticipant();
     var present = !!p || cloudFresh();
@@ -1252,8 +1339,8 @@
     if (scene.card) {
       var lines = [scene.card.title];
       if (scene.card.subtitle) lines = lines.concat(wrapText(scene.card.subtitle, 58, 4));
-      var pv = (scene.cardPos || "bl").charAt(0);
-      var ph = (scene.cardPos || "bl").charAt(1);
+      var pv = legacyPos(scene).charAt(0);
+      var ph = legacyPos(scene).charAt(1);
       params["text.content"] = lines.join("\n");
       params["text.align_horizontal"] = ph === "l" ? "left" : ph === "r" ? "right" : "center";
       params["text.align_vertical"] = pv === "t" ? "top" : "bottom";
@@ -1476,74 +1563,79 @@
     });
   }
 
-  /* ---------- Card style (applies to every card kind) ---------- */
-  function cardStyleOf(s2) {
-    if (!s2.cardStyle) s2.cardStyle = { align: "left", size: "m", titleColor: "#F0E6D0", subColor: "#B9C4DA" };
-    return s2.cardStyle;
-  }
+  /* ---------- Card style — PER KIND (Dawn, July 31) ----------
+     Each tab styles ITS card: .cs-card[data-kind=l3|prayer|scripture] holds
+     rows of buttons (.cs-pos/.cs-align/.cs-tsize/.cs-bsize), a lift slider
+     (.cs-lift) and color inputs (.cs-tcolor/.cs-bcolor). One delegated binder
+     wires them all; syncCardStyleUI() reflects state back into the buttons. */
+  function bindCardStyleCards() {
+    Array.prototype.forEach.call(document.querySelectorAll(".cs-card"), function (cardEl) {
+      var kind = cardEl.getAttribute("data-kind");
+      if (!kind) return;
 
-  var csPos = document.getElementById("cs-pos");
-  if (csPos) {
-    csPos.addEventListener("click", function (e) {
-      var b = e.target.closest ? e.target.closest("[data-pos]") : null;
-      if (!b) return;
-      var s2c = activeScene();
-      s2c.cardPos = "b" + b.getAttribute("data-pos"); // cards live at the bottom
-      Array.prototype.forEach.call(csPos.querySelectorAll(".cp-btn"), function (x) {
-        x.classList.toggle("active", x === b);
+      cardEl.addEventListener("click", function (e) {
+        var b = e.target.closest ? e.target.closest("button[data-pos],button[data-al],button[data-sz]") : null;
+        if (!b) return;
+        var st = styleOf(activeScene(), kind);
+        if (b.hasAttribute("data-pos")) {
+          st.pos = "b" + b.getAttribute("data-pos"); // cards live at the bottom
+        } else if (b.hasAttribute("data-al")) {
+          st.align = b.getAttribute("data-al");
+        } else {
+          var row = b.parentNode;
+          if (row.classList.contains("cs-tsize")) st.titleSize = b.getAttribute("data-sz");
+          else st.bodySize = b.getAttribute("data-sz");
+        }
+        Array.prototype.forEach.call(b.parentNode.children, function (x) {
+          x.classList.toggle("active", x === b);
+        });
+        applyScene();
       });
-      applyScene();
+
+      var lift = cardEl.querySelector(".cs-lift");
+      if (lift) lift.addEventListener("input", function () {
+        styleOf(activeScene(), kind).lift = Math.max(0, Math.min(300, Number(lift.value) || 0));
+        applyScene();
+      });
+
+      var tc = cardEl.querySelector(".cs-tcolor");
+      if (tc) tc.addEventListener("input", function () {
+        styleOf(activeScene(), kind).titleColor = tc.value;
+        applyScene();
+      });
+      var bc2 = cardEl.querySelector(".cs-bcolor");
+      if (bc2) bc2.addEventListener("input", function () {
+        styleOf(activeScene(), kind).subColor = bc2.value;
+        applyScene();
+      });
     });
   }
+  bindCardStyleCards();
 
-  var csAlign = document.getElementById("cs-align");
-  var csSize = document.getElementById("cs-size");
-  var csTitle = document.getElementById("cs-title");
-  var csSub = document.getElementById("cs-sub");
-
-  if (csAlign) {
-    csAlign.addEventListener("click", function (e) {
-      var b = e.target.closest ? e.target.closest("[data-al]") : null;
-      if (!b) return;
-      // Text alignment ONLY (position has its own row now)
-      cardStyleOf(activeScene()).align = b.getAttribute("data-al");
-      Array.prototype.forEach.call(csAlign.querySelectorAll(".al-btn"), function (x) {
-        x.classList.toggle("active", x === b);
-      });
-      applyScene();
-    });
-  }
-
-  if (csSize) {
-    csSize.addEventListener("click", function (e) {
-      var b = e.target.closest ? e.target.closest("[data-sz]") : null;
-      if (!b) return;
-      cardStyleOf(activeScene()).size = b.getAttribute("data-sz");
-      Array.prototype.forEach.call(csSize.querySelectorAll(".sz-btn"), function (x) {
-        x.classList.toggle("active", x === b);
-      });
-      applyScene();
-    });
-  }
-
-  if (csTitle) csTitle.addEventListener("input", function () {
-    cardStyleOf(activeScene()).titleColor = csTitle.value;
-    applyScene();
-  });
-  if (csSub) csSub.addEventListener("input", function () {
-    cardStyleOf(activeScene()).subColor = csSub.value;
-    applyScene();
-  });
-
-  /* ---------- Card position (applies to every card kind) ---------- */
-  if (els.cardPosRow) {
-    els.cardPosRow.addEventListener("click", function (e) {
-      var btn = e.target.closest ? e.target.closest(".pos-btn") : null;
-      if (!btn) return;
-      var pos = btn.getAttribute("data-pos");
-      if (!/^[tb][lcr]$/.test(pos)) return;
-      activeScene().cardPos = pos;
-      applyScene();
+  /* Reflect the active scene's styles into every style card's controls. */
+  function syncCardStyleUI() {
+    var s = activeScene();
+    Array.prototype.forEach.call(document.querySelectorAll(".cs-card"), function (cardEl) {
+      var kind = cardEl.getAttribute("data-kind");
+      if (!kind) return;
+      var st = styleOf(s, kind);
+      function mark(rowSel, attr, val) {
+        var row = cardEl.querySelector(rowSel);
+        if (!row) return;
+        Array.prototype.forEach.call(row.children, function (x) {
+          x.classList.toggle("active", x.getAttribute(attr) === val);
+        });
+      }
+      mark(".cs-pos", "data-pos", (st.pos || "bl").charAt(1));
+      mark(".cs-align", "data-al", st.align || "left");
+      mark(".cs-tsize", "data-sz", st.titleSize || "m");
+      mark(".cs-bsize", "data-sz", st.bodySize || "m");
+      var lift = cardEl.querySelector(".cs-lift");
+      if (lift && document.activeElement !== lift) lift.value = st.lift || 0;
+      var tc = cardEl.querySelector(".cs-tcolor");
+      if (tc && /^#[0-9a-fA-F]{6}$/.test(st.titleColor || "")) tc.value = st.titleColor;
+      var bc2 = cardEl.querySelector(".cs-bcolor");
+      if (bc2 && /^#[0-9a-fA-F]{6}$/.test(st.subColor || "")) bc2.value = st.subColor;
     });
   }
 
@@ -1820,11 +1912,7 @@
     // visible in the PROGRAM tile and the studio monitors — no duplicates.
     if (els.frameGuide) els.frameGuide.hidden = true;
     setActiveModeButton(s.mode);
-    if (els.cardPosRow) {
-      Array.prototype.forEach.call(els.cardPosRow.querySelectorAll(".pos-btn"), function (b) {
-        b.classList.toggle("active", b.getAttribute("data-pos") === s.cardPos);
-      });
-    }
+    syncCardStyleUI();
     if (els.slateRow) {
       Array.prototype.forEach.call(els.slateRow.querySelectorAll(".slate-btn"), function (b) {
         var k = b.getAttribute("data-slate");
@@ -1837,7 +1925,7 @@
   /* The WYSIWYG card mirrors the broadcast corner exactly. */
   function positionPreviewCard() {
     if (!els.liveCard) return;
-    var pos = /^[tb][lcr]$/.test(activeScene().cardPos) ? activeScene().cardPos : "bl";
+    var pos = legacyPos(activeScene());
     var s = els.liveCard.style;
     s.left = "auto"; s.right = "auto"; s.top = "auto"; s.bottom = "auto";
     s.transform = "none";
