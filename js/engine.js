@@ -48,7 +48,7 @@
 
   var W = 1920, H = 1080, FPS = 30;
   var FADE = 0.22; // card fade seconds
-  var BUILD = "jul31-n11"; // shown in the console Engine panel — stale-engine detector
+  var BUILD = "jul31-n12"; // shown in the console Engine panel — stale-engine detector
 
   /* ---------- Royal Flame tokens ---------- */
   var C = {
@@ -850,10 +850,6 @@
     scene = scenePreview;
     cardDraw = cardDrawPrev;
     draw(dt);
-    ctx.font = "700 30px " + SANS;
-    ctx.fillStyle = "rgba(212, 168, 83, 0.92)";
-    ctx.textBaseline = "top";
-    ctx.fillText("PREVIEW", 24, 20);
     // The 9:16 rides along in the same feed — the monitor crops it out.
     if (VERTICAL && portraitCtx) {
       ctx.fillStyle = "#0a101c";

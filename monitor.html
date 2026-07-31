@@ -12,7 +12,8 @@
   .tag.vt-tag { background: #8899b8; color: #0f1a30; }
   .pane { flex: 1; position: relative; background: #0a101c; overflow: hidden; }
   .pane video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
-  .pane video.crop { inset: auto; width: auto; height: auto; max-width: none; }
+  .pane video.crop { display: none; }
+  .mon-c { position: absolute; inset: 0; width: 100%; height: 100%; }
   .tag { position: absolute; top: 10px; left: 10px; z-index: 2; font-size: 11px; font-weight: 800; letter-spacing: .14em; padding: 4px 10px; border-radius: 4px; }
   .tag.pv { background: #d4a853; color: #0f1a30; }
   .tag.pg { background: #d63b3b; color: #fff2ee; }
@@ -24,6 +25,7 @@
   <div class="pane">
     <span class="tag pv">PREVIEW</span>
     <video id="pv" autoplay playsinline muted></video>
+    <canvas class="mon-c" id="pv-c" hidden></canvas>
     <div class="empty" id="pv-empty">Waiting for the engine&rsquo;s preview&hellip; (the VPS must run the latest code)</div>
   </div>
   <div class="pane">
@@ -34,6 +36,7 @@
   <div class="pane vt">
     <span class="tag vt-tag">9:16</span>
     <video id="vt" autoplay playsinline muted></video>
+    <canvas class="mon-c" id="vt-c" hidden></canvas>
     <div class="empty" id="vt-empty">Waiting for the portrait feed&hellip; (runner needs VERTICAL=1)</div>
   </div>
 </div>
@@ -135,38 +138,31 @@
   var compositeOn = false;
 
   function setupComposite(pv) {
-    if (compositeOn) { layoutCrops(); return; }
+    if (compositeOn) return;
     compositeOn = true;
-    var vt = document.getElementById("vt");
-    vt.srcObject = pv.srcObject; // same stream, second view
-    vt.play().catch(function () {});
     var ve = document.getElementById("vt-empty");
     if (ve) ve.style.display = "none";
-    pv.classList.add("crop");
-    vt.classList.add("crop");
-    layoutCrops();
-    window.addEventListener("resize", layoutCrops);
-    setInterval(layoutCrops, 2000); // panes can change size with the window
+    pv.classList.add("crop"); // hide the raw video; canvases take over
+    document.getElementById("pv-c").hidden = false;
+    document.getElementById("vt-c").hidden = false;
+    setInterval(function () { paintRegion(pv, "pv-c", 0, 1920); paintRegion(pv, "vt-c", 1920, 608); }, 66);
   }
 
-  function layoutCrops() {
-    if (!compositeOn) return;
-    var pv = document.getElementById("pv");
-    var vt = document.getElementById("vt");
-    var pvPane = pv.parentElement, vtPane = vt.parentElement;
-    var VW = 2528, VH = 1080;
-    // Preview pane shows [0,0,1920x1080]
-    var s1 = Math.min(pvPane.clientWidth / 1920, pvPane.clientHeight / 1080);
-    pv.style.width = (VW * s1) + "px";
-    pv.style.height = (VH * s1) + "px";
-    pv.style.left = ((pvPane.clientWidth - 1920 * s1) / 2) + "px";
-    pv.style.top = ((pvPane.clientHeight - 1080 * s1) / 2) + "px";
-    // 9:16 pane shows [1920,0,608x1080]
-    var s2 = Math.min(vtPane.clientWidth / 608, vtPane.clientHeight / 1080);
-    vt.style.width = (VW * s2) + "px";
-    vt.style.height = (VH * s2) + "px";
-    vt.style.left = (((vtPane.clientWidth - 608 * s2) / 2) - 1920 * s2) + "px";
-    vt.style.top = ((vtPane.clientHeight - 1080 * s2) / 2) + "px";
+  /* Draw an exact [sx, 0, sw, 1080] region of the composite feed into a pane
+     canvas, letterboxed — pixel precise at any pane size. */
+  function paintRegion(video, canvasId, sx, sw) {
+    var c = document.getElementById(canvasId);
+    var pane = c.parentElement;
+    var cw = pane.clientWidth, ch = pane.clientHeight;
+    if (!cw || !ch || video.readyState < 2) return;
+    if (c.width !== cw) c.width = cw;
+    if (c.height !== ch) c.height = ch;
+    var g = c.getContext("2d");
+    g.fillStyle = "#0a101c";
+    g.fillRect(0, 0, cw, ch);
+    var sc = Math.min(cw / sw, ch / 1080);
+    var dw = sw * sc, dh = 1080 * sc;
+    g.drawImage(video, sx, 0, sw, 1080, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
   }
 })();
 </script>
