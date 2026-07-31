@@ -33,9 +33,16 @@ const KEY = required("ENGINE_KEY");
 const HEALTH_PORT = Number(process.env.HEALTH_PORT || 8080);
 const DISPLAY = process.env.DISPLAY || ":99";
 
-const W = 1920, H = 1080, FPS = 30;
+const W = 1920, H = 1080;
+const FPS = Number(process.env.FPS || 30);
+// x264 preset: CPU vs quality knob. superfast cuts encode CPU ~30% vs
+// veryfast with a barely visible quality cost at our 5000k bitrate —
+// the right default for shared-vCPU droplets (July 31: YouTube got 2fps).
+const PRESET = process.env.X264_PRESET || "superfast";
 // VERTICAL=1: the display widens to 3000×1920 — program 16:9 at (0,0),
 // portrait 9:16 at x=1920 — and a second FFmpeg can push Instagram.
+// ⚠️ The wide display nearly triples the x11grab pixel load. If you're not
+// streaming 9:16, set VERTICAL=0 — it's the single biggest CPU saving.
 const WIDE = process.env.VERTICAL !== "0"; // portrait ON by default (Dawn)
 const DISP_W = WIDE ? 3000 : W;
 const DISP_H = WIDE ? 1920 : H;
@@ -207,7 +214,7 @@ function startFfmpegVert(url) {
     "-framerate", String(FPS), "-video_size", `${DISP_W}x${DISP_H}`, "-i", DISPLAY,
     "-f", "pulse", "-i", "broadcast.monitor",
     "-vf", "crop=1080:1920:1920:0",
-    "-c:v", "libx264", "-preset", "veryfast", "-tune", "zerolatency",
+    "-c:v", "libx264", "-preset", PRESET, "-tune", "zerolatency",
     "-b:v", "3500k", "-maxrate", "3800k", "-bufsize", "7000k",
     "-pix_fmt", "yuv420p", "-g", String(FPS * 2), "-keyint_min", String(FPS),
     "-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-ac", "2",
@@ -258,7 +265,7 @@ function startFfmpeg(urls) {
     "-f", "pulse", "-i", "broadcast.monitor",
     ...(WIDE ? ["-vf", "crop=1920:1080:0:0"] : []),
     // Encode once, push everywhere
-    "-c:v", "libx264", "-preset", "veryfast", "-tune", "zerolatency",
+    "-c:v", "libx264", "-preset", PRESET, "-tune", "zerolatency",
     "-b:v", "5000k", "-maxrate", "5500k", "-bufsize", "10000k",
     "-pix_fmt", "yuv420p", "-g", String(FPS * 2), "-keyint_min", String(FPS),
     "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2",

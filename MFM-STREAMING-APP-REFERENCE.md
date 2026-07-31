@@ -491,6 +491,23 @@ C command rail / D theater) and picked **B**. Shipped:
 - monitor.html now says this in the pane message and also falls back to the
   console-supplied engine sid hint.
 
+### First real YouTube stream (July 31, night) — 2fps: CPU starvation, and the fixes
+- Dawn went LIVE to YouTube from the cloud runner (pipeline works end to end!)
+  but YouTube received ~2fps ("Poor" health). Cause: 4 SHARED vCPUs carrying
+  Chromium (program + preview renders) AND FFmpeg x11grab of the **3000×1920**
+  wide display (VERTICAL defaults ON) + libx264 veryfast.
+- Software relief shipped: `X264_PRESET` env (default now **superfast**, ~30%
+  less encode CPU) and `FPS` env; runner comments warn that the wide display
+  nearly triples grab load. **If not streaming 9:16, set `VERTICAL=0` in
+  runner/.env** — Xvfb drops to 1920×1080 (entrypoint.sh handles it), the crop
+  filter disappears, portrait render stops. Re-enable VERTICAL=1 only for
+  Instagram nights (needs a stronger box).
+- Droplet note: Dawn bought a resize to Basic **4 vCPU SHARED** $48/mo — same
+  class as before, hence "no change". If software fixes aren't enough, the
+  meaningful upgrade is **CPU-Optimized (dedicated vCPU)**; resizes only apply
+  after Power off → Resize → Power on.
+- HIDDEN=1 was found in her .env and removed (see root-cause entry above).
+
 ### NEXT SESSION — top of queue (July 30, end of day)
 1. **Card style controls, modeled on Dawn's OBS "Lower Thirds" plugin screenshot**
    (analyzed): text alignment L/C/R, font size, line spacing, font choice, BOLD toggles,
