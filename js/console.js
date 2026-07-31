@@ -139,7 +139,7 @@
     spot: null,       // null | session_id featured full-screen
     slate: null,      // null | { kind: soon|brb|end, line }
     labels: false,    // names on the STREAM (room always shows them)
-    cardStyle: { align: "left", size: "m", titleColor: "#F2F2F2", subColor: "#A8A8A8" },
+    cardStyle: { align: "left", size: "m", titleColor: "#F0E6D0", subColor: "#B9C4DA" },
   };
   var ppIdx = 0;
 
@@ -1425,8 +1425,23 @@
 
   /* ---------- Card style (applies to every card kind) ---------- */
   function cardStyleOf(s2) {
-    if (!s2.cardStyle) s2.cardStyle = { align: "left", size: "m", titleColor: "#F2F2F2", subColor: "#A8A8A8" };
+    if (!s2.cardStyle) s2.cardStyle = { align: "left", size: "m", titleColor: "#F0E6D0", subColor: "#B9C4DA" };
     return s2.cardStyle;
+  }
+
+  var csPos = document.getElementById("cs-pos");
+  if (csPos) {
+    csPos.addEventListener("click", function (e) {
+      var b = e.target.closest ? e.target.closest("[data-pos]") : null;
+      if (!b) return;
+      var s2c = activeScene();
+      var vch = /^[tb]/.test(s2c.cardPos || "") ? s2c.cardPos.charAt(0) : "b";
+      s2c.cardPos = vch + b.getAttribute("data-pos"); // moves the card
+      Array.prototype.forEach.call(csPos.querySelectorAll(".cp-btn"), function (x) {
+        x.classList.toggle("active", x === b);
+      });
+      applyScene();
+    });
   }
 
   var csAlign = document.getElementById("cs-align");
@@ -1438,12 +1453,8 @@
     csAlign.addEventListener("click", function (e) {
       var b = e.target.closest ? e.target.closest("[data-al]") : null;
       if (!b) return;
-      var al = b.getAttribute("data-al");
-      var s2c = activeScene();
-      cardStyleOf(s2c).align = al;
-      // Left/Center/Right also MOVE the card across the screen (like Word)
-      var vch = /^[tb]/.test(s2c.cardPos || "") ? s2c.cardPos.charAt(0) : "b";
-      s2c.cardPos = vch + { left: "l", center: "c", right: "r" }[al];
+      // Text alignment ONLY (position has its own row now)
+      cardStyleOf(activeScene()).align = b.getAttribute("data-al");
       Array.prototype.forEach.call(csAlign.querySelectorAll(".al-btn"), function (x) {
         x.classList.toggle("active", x === b);
       });

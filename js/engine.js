@@ -48,7 +48,7 @@
 
   var W = 1920, H = 1080, FPS = 30;
   var FADE = 0.22; // card fade seconds
-  var BUILD = "jul31-n13"; // shown in the console Engine panel — stale-engine detector
+  var BUILD = "jul31-n14"; // shown in the console Engine panel — stale-engine detector
 
   /* ---------- Royal Flame tokens ---------- */
   var C = {
@@ -1181,12 +1181,18 @@
     ctx.save();
     ctx.globalAlpha = alpha;
     roundRect(x, y, w, h, 10);
-    ctx.fillStyle = "rgba(10, 16, 28, 0.6)";
+    ctx.fillStyle = "rgba(10, 16, 28, 0.88)";
     ctx.fill();
-    var tx = x + barW + padX, ty = y + padY;
+    ctx.save();
+    roundRect(x, y, w, h, 10);
+    ctx.clip();
+    ctx.fillStyle = C.gold;
+    ctx.fillRect(x, y, 6, h);
+    ctx.restore();
+    var tx = x + 6 + padX, ty = y + padY;
     ctx.textBaseline = "top";
-    ctx.fillStyle = card.kind === "prayer" ? "#D54141" : "#F2F2F2";
-    ctx.font = "800 34px " + SANS;
+    ctx.fillStyle = card.kind === "prayer" ? "#FF7A3D" : "#F0E6D0";
+    ctx.font = "650 36px " + SERIF;
     ctx.fillText(card.title, tx, ty, maxW);
     ty += 48;
     if (lines.length) {
@@ -1234,7 +1240,7 @@
   }
 
   var CARD = {
-    padX: 18, padY: 12, barW: 0, gap: 10, maxTextW: 700, subLH: 40,
+    padX: 26, padY: 20, barW: 6, gap: 12, maxTextW: 700, subLH: 40,
     titleFont: "800 44px " + SANS,
     subFont: "500 30px " + SANS,
     kickFont: "700 20px " + SANS,
@@ -1251,8 +1257,8 @@
     var st = (scene.cardStyle && CARD_SIZES[scene.cardStyle.size]) ? scene.cardStyle : { size: "m" };
     var z = CARD_SIZES[st.size] || CARD_SIZES.m;
     return {
-      title: "800 " + z.t + "px " + SANS,
-      sub: "500 " + z.sub + "px " + SANS,
+      title: "650 " + z.t + "px " + SERIF, // Fraunces — the Royal Flame voice
+      sub: "400 " + z.sub + "px " + SANS,
       lh: z.lh,
       th: z.th,
     };
@@ -1293,14 +1299,23 @@
     ctx.globalAlpha = a;
     ctx.translate(0, (1 - a) * 14); // gentle rise
 
-    // Clean OBS-style lower third + a soft backing strip so the text stays
-    // readable over bright video (field-found: gray text washed out).
+    // The Royal Flame card (returned by request): translucent navy box with
+    // the gold bar — readable anywhere, unmistakably ours.
+    ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
+    ctx.shadowBlur = 26;
+    ctx.shadowOffsetY = 8;
     roundRect(box.x, box.y, box.w, box.h, 10);
-    ctx.fillStyle = "rgba(10, 16, 28, 0.6)";
+    ctx.fillStyle = "rgba(10, 16, 28, 0.88)";
     ctx.fill();
-    ctx.shadowColor = "rgba(0, 0, 0, 0.85)";
-    ctx.shadowBlur = 10;
-    ctx.shadowOffsetY = 2;
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.save();
+    roundRect(box.x, box.y, box.w, box.h, 10);
+    ctx.clip();
+    ctx.fillStyle = C.gold;
+    ctx.fillRect(box.x, box.y, CARD.barW, box.h);
+    ctx.restore();
 
     var tx = box.x + CARD.barW + CARD.padX;
     var ty = box.y + CARD.padY;
@@ -1319,7 +1334,7 @@
     if (align === "center") { ctx.textAlign = "center"; tx = box.x + box.w / 2; }
     else if (align === "right") { ctx.textAlign = "right"; tx = box.x + box.w - CARD.padX; }
     ctx.font = F2.title;
-    ctx.fillStyle = card.kind === "prayer" ? "#D54141" : (st2.titleColor || "#F2F2F2");
+    ctx.fillStyle = card.kind === "prayer" ? "#FF7A3D" : (st2.titleColor || "#F0E6D0");
     ctx.textBaseline = "top";
     ctx.fillText(card.title, tx, ty, CARD.maxTextW);
     ty += F2.th;
@@ -1327,7 +1342,7 @@
     if (box.lines.length) {
       ty += CARD.gap;
       ctx.font = F2.sub;
-      ctx.fillStyle = card.kind === "prayer" ? (st2.titleColor || "#F2F2F2") : (st2.subColor || "#A8A8A8");
+      ctx.fillStyle = card.kind === "prayer" ? "#F0E6D0" : (st2.subColor || "#B9C4DA");
       box.lines.forEach(function (l) {
         ctx.fillText(l, tx, ty);
         ty += F2.lh;
