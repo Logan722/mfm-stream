@@ -601,16 +601,26 @@
     return allParticipants().filter(isEngine).length;
   }
 
+  function cloudFresh() {
+    return !!(eng.cloudSid && (Date.now() - eng.cloudSeen) < 12000);
+  }
+
+  function engineTargetSid() {
+    var p = engineParticipant();
+    if (p) return p.session_id;
+    return cloudFresh() ? eng.cloudSid : null; // invisible engine: address by heartbeat
+  }
+
   function engineOnline() {
-    return !!engineParticipant();
+    return !!engineParticipant() || cloudFresh();
   }
 
   function sendCmd(obj) {
-    var p = engineParticipant();
-    if (!p || !callFrame) return;
+    var sid = engineTargetSid();
+    if (!sid || !callFrame) return;
     obj.t = "mfm-cmd";
     try {
-      callFrame.sendAppMessage(obj, p.session_id);
+      callFrame.sendAppMessage(obj, sid);
     } catch (e) { /* heartbeat mismatch will show in the panel */ }
   }
 
@@ -641,9 +651,7 @@
 
   /* ---------- Cloud stream (VPS FFmpeg) ---------- */
   function cloudCapable() {
-    var p = engineParticipant();
-    return !!(p && eng.cloudSid && p.session_id === eng.cloudSid &&
-      (Date.now() - eng.cloudSeen) < 12000);
+    return cloudFresh(); // heartbeats prove the cloud engine, visible or not
   }
 
   function sendRtmp(action, urls) {
@@ -815,10 +823,11 @@
   function updateEnginePanel() {
     if (!els.engDot || !els.engStatus) return;
     var p = engineParticipant();
+    var present = !!p || cloudFresh();
     var locked = bc.live && bc.engineLocked;
-    var onAir = (locked || cs.running) && p;
-    els.engDot.className = "eng-dot" + (onAir ? " locked" : p ? " on" : "");
-    if (!p) {
+    var onAir = (locked || cs.running) && present;
+    els.engDot.className = "eng-dot" + (onAir ? " locked" : present ? " on" : "");
+    if (!present) {
       els.engStatus.textContent = "Engine offline — Go Live would use the Daily fallback";
     } else if (cs.running) {
       els.engStatus.textContent = "LIVE — streaming from the cloud runner (our own FFmpeg)";
@@ -1293,7 +1302,8 @@
         frame.onload = function () {
           try {
             frame.contentWindow.postMessage(
-              { t: "mfm-monitor-join", url: r.d.url, token: r.d.token, vertical: vert },
+              { t: "mfm-monitor-join", url: r.d.url, token: r.d.token, vertical: vert,
+                engineSid: eng.cloudSid || null },
               window.location.origin
             );
           } catch (e) { /* fine */ }

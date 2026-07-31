@@ -59,7 +59,18 @@
       .on("participant-joined", sync)
       .on("participant-updated", sync)
       .on("track-started", attach);
-    call.join({ url: d.url, token: d.token }).catch(function () { /* parent shows state */ });
+    call.join({ url: d.url, token: d.token }).then(function () {
+      if (d.engineSid) {
+        try {
+          call.updateParticipant(d.engineSid, {
+            setSubscribedTracks: { video: true, screenVideo: true, audio: false },
+          });
+          vtSay("subscribed by id");
+        } catch (err) {
+          vtSay("sub-by-id error: " + ((err && err.message) || err));
+        }
+      }
+    }).catch(function () { /* parent shows state */ });
   });
 
   function isEngine(p) {

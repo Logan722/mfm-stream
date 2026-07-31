@@ -77,7 +77,8 @@ function engineUrl() {
     "/program.html?room=" + encodeURIComponent(ROOM) +
     "&key=" + encodeURIComponent(KEY) +
     "&autostart=1&capture=1&monitor=1&runner=cloud" +
-    (WIDE ? "&vertical=1" : "")
+    (WIDE ? "&vertical=1" : "") +
+    (process.env.HIDDEN === "1" ? "&hidden=1" : "")
   );
 }
 

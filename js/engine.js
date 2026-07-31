@@ -42,12 +42,13 @@
   var MONITOR = qs.get("monitor") === "1";
   var RUNNER = qs.get("runner") === "cloud";
   var VERTICAL = qs.get("vertical") === "1"; // render the 9:16 portrait canvas too
+  var HIDDEN = qs.get("hidden") === "1"; // join presence-hidden (no tile anywhere)
   var ffmpegState = { running: false, startedAt: 0, detail: "" };
   var ffmpegVertState = { running: false, startedAt: 0, detail: "" };
 
   var W = 1920, H = 1080, FPS = 30;
   var FADE = 0.22; // card fade seconds
-  var BUILD = "jul30-n10"; // shown in the console Engine panel — stale-engine detector
+  var BUILD = "jul31-n11"; // shown in the console Engine panel — stale-engine detector
 
   /* ---------- Royal Flame tokens ---------- */
   var C = {
@@ -403,7 +404,7 @@
       return fetch("/api/token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: "engine", room: joinedRoom, engineKey: key }),
+        body: JSON.stringify({ role: "engine", room: joinedRoom, engineKey: key, hidden: HIDDEN }),
       });
     })
       .then(function (res) {

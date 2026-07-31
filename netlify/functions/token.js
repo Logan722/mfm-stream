@@ -185,7 +185,17 @@ async function mintTokenForRole(apiKey, role, roomName, userName) {
   };
 
   if (role === "engine") {
-    return mintToken(apiKey, { ...base, user_id: ENGINE_USER_ID });
+    const props = { ...base, user_id: ENGINE_USER_ID };
+    if (body.hidden === true || body.hidden === "1" || body.hidden === 1) {
+      // Invisible engine: no tile for anyone. Falls back to visible if
+      // Daily rejects the permission — joining is never blocked.
+      try {
+        return await mintToken(apiKey, { ...props, permissions: { hasPresence: false } });
+      } catch (err) {
+        console.error("hidden engine mint failed — visible fallback:", err);
+      }
+    }
+    return mintToken(apiKey, props);
   }
 
   if (role === "monitor") {
