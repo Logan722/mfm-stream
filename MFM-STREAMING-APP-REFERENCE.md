@@ -508,6 +508,19 @@ C command rail / D theater) and picked **B**. Shipped:
   after Power off → Resize → Power on.
 - HIDDEN=1 was found in her .env and removed (see root-cause entry above).
 
+### CONFIRMED (July 31, ~11pm): VERTICAL=0 + superfast → YouTube "Excellent"
+- Same 4-vCPU shared droplet went from "Poor"/2fps to **Excellent** — CPU
+  starvation confirmed as the whole story. 16:9 works on the $48 box.
+- 9:16 stays off until Dawn resizes to CPU-Optimized (dedicated) and sets
+  VERTICAL=1 back. Console message guides this correctly.
+- **NEW BUG for next session (cosmetic, visible to viewers):** the stream
+  picture shows a thin strip of Chromium's address bar at the top — the engine
+  window isn't truly fullscreen on Xvfb. Likely cause: runner.js launches with
+  `--kiosk` but then `browser.newPage()` opens a SECOND window that kiosk
+  doesn't apply to. Fix: `chromium.launchPersistentContext` (headless:false,
+  viewport:null, same args) and use its first page instead of newPage — or
+  offset the x11grab below the chrome. Verify by screenshotting the display.
+
 ### NEXT SESSION — top of queue (July 30, end of day)
 1. **Card style controls, modeled on Dawn's OBS "Lower Thirds" plugin screenshot**
    (analyzed): text alignment L/C/R, font size, line spacing, font choice, BOLD toggles,
