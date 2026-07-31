@@ -468,7 +468,7 @@ body.deck-hidden .deck,
 body.deck-hidden .deck-tabs { display: none; }
 
 .deck {
-  height: clamp(240px, 30vh, 320px);
+  height: clamp(205px, 26vh, 300px);
   flex-shrink: 0;
   background: var(--bg-navy-deep);
   padding: 12px 14px;
@@ -1009,8 +1009,10 @@ body.capture-wide #portrait-canvas {
    them (collapsible with the Room button) — audio always keeps playing. */
 body.studio-open .monitors { display: block; flex: 1; height: auto; min-height: 0; position: relative; border-top: none; }
 
+/* Open, the room gets a height where Daily's own header + toolbar still
+   leave a real row of faces (its chrome alone is ~110px tall). */
 body.studio-open .console-main > .stage {
-  flex: 0 0 clamp(120px, 18vh, 200px);
+  flex: 0 0 clamp(220px, 30vh, 340px);
   min-height: 0;
   border-top: 1px solid var(--line-navy);
 }

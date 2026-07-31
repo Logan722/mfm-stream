@@ -1143,13 +1143,24 @@
     } catch (e) { /* fine */ }
   }
 
-  /* Room filmstrip toggle — only meaningful while the monitors are up */
+  /* Room strip toggle — only meaningful while the monitors are up.
+     Starts COLLAPSED (Dawn, July 31: monitors deserve the space; Daily's own
+     chrome swallows a short strip anyway). The choice sticks per device. */
   var roomToggle = document.getElementById("room-toggle");
+
+  function setRoomStrip(hidden) {
+    document.body.classList.toggle("room-hidden", hidden);
+    if (roomToggle) roomToggle.innerHTML = hidden ? "Room &#9656;" : "Room &#9662;";
+    try { localStorage.setItem("mfm-room-strip", hidden ? "hidden" : "open"); } catch (e) { /* fine */ }
+  }
+
   if (roomToggle) {
     roomToggle.addEventListener("click", function () {
-      var hidden = document.body.classList.toggle("room-hidden");
-      roomToggle.innerHTML = hidden ? "Room &#9656;" : "Room &#9662;";
+      setRoomStrip(!document.body.classList.contains("room-hidden"));
     });
+    var roomPref = "hidden";
+    try { roomPref = localStorage.getItem("mfm-room-strip") || "hidden"; } catch (e) { /* fine */ }
+    setRoomStrip(roomPref !== "open");
   }
 
   /* ---------- Hardening: wake lock + unload guard ---------- */

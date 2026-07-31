@@ -442,9 +442,13 @@ C command rail / D theater) and picked **B**. Shipped:
   header with live dot, 9:16 pane header — rounded panes, gold hairline, shadow.
   ⚠️ `.wrap` gap (128px / 90px has-vert) + 6px side padding must stay in sync with
   `positionMonControls()` in console.js — TAKE/CUT float in that gap.
-- **The room no longer disappears in studio mode** — the Daily call shows as a
-  filmstrip (clamp 120–200px) under the monitors; the **Room ▾** button at the right
-  of the tab bar collapses it (`body.room-hidden`).
+- **The room no longer disappears in studio mode** — the Daily call can show as a
+  strip under the monitors via the **Room ▾** button (`body.room-hidden`).
+  Field-adjusted same day: the strip starts COLLAPSED and the choice persists
+  (`localStorage mfm-room-strip`) — on real laptop heights Daily Prebuilt's own
+  chrome (~110px header+toolbar) swallowed a short strip, so open it now sits at
+  clamp(220px, 30vh, 340px) where a real row of faces fits. Deck slimmed to
+  clamp(205px, 26vh, 300px).
 - **The deck is tabbed:** Broadcast / Lower Third / Prayer / Scripture / Media /
   Engine — one `.deck-page` at a time, each page a row of floating `.dp-card`
   Royal Flame cards. ALL original element IDs preserved (console.js queries by ID
