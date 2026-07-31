@@ -1113,6 +1113,45 @@
     });
   }
 
+  /* ---------- Deck tabs (Option B "Monitors First" — Dawn, July 31) ----------
+     One page at a time; the chosen tab is remembered on this device. */
+  var deckTabs = document.getElementById("deck-tabs");
+
+  function showDeckPage(name) {
+    if (!deckTabs) return;
+    var found = false;
+    Array.prototype.forEach.call(document.querySelectorAll(".deck-page"), function (p) {
+      var on = p.getAttribute("data-page") === name;
+      p.classList.toggle("active", on);
+      if (on) found = true;
+    });
+    if (!found) return showDeckPage("broadcast");
+    Array.prototype.forEach.call(deckTabs.querySelectorAll(".dt-btn[data-page]"), function (b) {
+      b.classList.toggle("active", b.getAttribute("data-page") === name);
+    });
+    try { localStorage.setItem("mfm-deck-tab", name); } catch (e) { /* fine */ }
+  }
+
+  if (deckTabs) {
+    deckTabs.addEventListener("click", function (e) {
+      var btn = e.target.closest ? e.target.closest(".dt-btn[data-page]") : null;
+      if (btn) showDeckPage(btn.getAttribute("data-page"));
+    });
+    try {
+      var savedTab = localStorage.getItem("mfm-deck-tab");
+      if (savedTab) showDeckPage(savedTab);
+    } catch (e) { /* fine */ }
+  }
+
+  /* Room filmstrip toggle — only meaningful while the monitors are up */
+  var roomToggle = document.getElementById("room-toggle");
+  if (roomToggle) {
+    roomToggle.addEventListener("click", function () {
+      var hidden = document.body.classList.toggle("room-hidden");
+      roomToggle.innerHTML = hidden ? "Room &#9656;" : "Room &#9662;";
+    });
+  }
+
   /* ---------- Hardening: wake lock + unload guard ---------- */
   var wakeLock = null;
 

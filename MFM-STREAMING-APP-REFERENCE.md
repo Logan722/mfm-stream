@@ -434,6 +434,27 @@ the broadcast ourselves** (hybrid): we paint every pixel; Daily keeps doing tran
   untouched (styled text has no bars). ⚠️ Remember: `docker compose restart` on the VPS
   after deploy or the engine keeps the old card.
 
+### Console layout: Option B "Monitors First" (July 31, 2026 — Dawn)
+Dawn reviewed four full-console mockups (A polished current / B monitors-first OBS /
+C command rail / D theater) and picked **B**. Shipped:
+- **console-main order:** monitors (hero, flex 1) → room filmstrip → deck tabs → deck.
+- **Monitor bezels** live INSIDE monitor.html now: PREVIEW gold header, PROGRAM fire
+  header with live dot, 9:16 pane header — rounded panes, gold hairline, shadow.
+  ⚠️ `.wrap` gap (128px / 90px has-vert) + 6px side padding must stay in sync with
+  `positionMonControls()` in console.js — TAKE/CUT float in that gap.
+- **The room no longer disappears in studio mode** — the Daily call shows as a
+  filmstrip (clamp 120–200px) under the monitors; the **Room ▾** button at the right
+  of the tab bar collapses it (`body.room-hidden`).
+- **The deck is tabbed:** Broadcast / Lower Third / Prayer / Scripture / Media /
+  Engine — one `.deck-page` at a time, each page a row of floating `.dp-card`
+  Royal Flame cards. ALL original element IDs preserved (console.js queries by ID
+  only, so no wiring changed). Chosen tab persists (`localStorage mfm-deck-tab`).
+- Slates moved into the Engine tab; prayer points got their own tab with a tall
+  textarea; destinations + vertical split into their own Broadcast-page cards.
+- Engine-offline mode unchanged: monitors hidden, room full-height, tabs still work.
+- Same day: Royal Flame scrollbars everywhere (thin rounded gold thumb on navy).
+- Netlify deploy only — no VPS restart needed for console/monitor page changes.
+
 ### NEXT SESSION — top of queue (July 30, end of day)
 1. **Card style controls, modeled on Dawn's OBS "Lower Thirds" plugin screenshot**
    (analyzed): text alignment L/C/R, font size, line spacing, font choice, BOLD toggles,

@@ -426,36 +426,82 @@ body.in-call .site-foot { display: none; }
 
 .console-main .stage { flex: 1; min-height: 0; }
 
-/* ---------- Production deck (bottom) ---------- */
-.deck {
+/* ---------- Production deck (bottom) — Option B "Monitors First"
+   (Dawn, July 31): a tab bar picks ONE page at a time; each page lays
+   its controls out as floating Royal Flame cards with room to breathe. */
+.deck-tabs {
   display: flex;
-  align-items: stretch;
-  height: 292px;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
   flex-shrink: 0;
-  background: var(--bg-navy);
+  background: linear-gradient(180deg, rgba(22, 38, 74, 0.92), rgba(18, 32, 61, 0.92));
   border-top: 1px solid var(--line-navy);
-  overflow-x: auto;
 }
 
-body.deck-hidden .deck { display: none; }
+.dt-btn {
+  padding: 7px 16px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--text-on-navy);
+  font-family: var(--sans);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
 
-.deck-panel {
+.dt-btn:hover { color: var(--cream); }
+
+.dt-btn.active {
+  background: var(--gold-glow);
+  border-color: var(--line-navy-strong);
+  color: var(--gold-light);
+}
+
+.dt-spacer { flex: 1; }
+
+.dt-room { color: var(--text-dim-navy); }
+
+body.deck-hidden .deck,
+body.deck-hidden .deck-tabs { display: none; }
+
+.deck {
+  height: clamp(240px, 30vh, 320px);
+  flex-shrink: 0;
+  background: var(--bg-navy-deep);
+  padding: 12px 14px;
+  overflow: hidden;
+}
+
+.deck-page { display: none; height: 100%; gap: 12px; }
+.deck-page.active { display: flex; }
+
+.dp-card {
   flex: 1 1 0;
-  min-width: 225px;
-  padding: 12px 14px 16px;
-  border-right: 1px solid var(--line-navy);
+  min-width: 230px;
+  max-width: 430px;
   overflow-y: auto;
+  padding: 13px 16px 16px;
+  background: linear-gradient(180deg, #1b2e50, #172845);
+  border: 1px solid var(--line-navy);
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
 
-.deck-panel:last-child { border-right: none; }
+.dp-card.wide { max-width: 640px; flex: 1.6; }
 
-.deck-panel .b-row-label:first-child { margin-top: 2px; }
+.dp-card .b-row-label:first-child { margin-top: 2px; }
 
-.deck-panel .b-golive {
+.dp-card .b-golive {
   margin-top: 12px !important;
   padding: 10px 14px !important;
   font-size: 0.85rem !important;
 }
+
+/* The prayer page gets a roomy textarea — it's the page's whole job */
+.deck-page[data-page="prayer"] .b-textarea { min-height: 108px; }
 
 /* ---------- WYSIWYG card over the video (mirrors the stream) ---------- */
 /* The frame guide is the 16:9 broadcast frame, centered in the video area.
@@ -958,10 +1004,18 @@ body.capture-wide #portrait-canvas {
 
 .monitors iframe { width: 100%; height: 100%; border: 0; display: block; }
 
-/* Studio takes over: the meeting view hides (audio keeps playing), the
-   monitors get the full stage, TAKE/CUT sit BETWEEN the panes like OBS. */
+/* Monitors First (Option B): the monitors are the hero up top, TAKE/CUT sit
+   BETWEEN the panes like OBS, and the room video becomes a filmstrip below
+   them (collapsible with the Room button) — audio always keeps playing. */
 body.studio-open .monitors { display: block; flex: 1; height: auto; min-height: 0; position: relative; border-top: none; }
-body.studio-open .console-main > .stage { display: none; }
+
+body.studio-open .console-main > .stage {
+  flex: 0 0 clamp(120px, 18vh, 200px);
+  min-height: 0;
+  border-top: 1px solid var(--line-navy);
+}
+
+body.studio-open.room-hidden .console-main > .stage { display: none; }
 
 .mon-controls {
   position: absolute;
@@ -1036,20 +1090,22 @@ body.studio-open .mon-controls { display: flex; }
 
   body.board-open .board { transform: translateX(0); }
 
-  /* Deck stacks vertically on small screens */
+  /* Deck pages stack their cards vertically on small screens */
   .deck {
-    flex-direction: column;
     height: auto;
     max-height: 46vh;
     overflow-y: auto;
-    overflow-x: hidden;
   }
 
-  .deck-panel {
-    border-right: none;
-    border-bottom: 1px solid var(--line-navy);
+  .deck-page.active { flex-direction: column; height: auto; }
+
+  .dp-card {
+    max-width: none;
     overflow-y: visible;
+    flex: 0 0 auto;
   }
+
+  .deck-tabs { overflow-x: auto; }
 
   /* WYSIWYG card scales down on small screens */
   .live-card { max-width: 74%; bottom: 84px; }

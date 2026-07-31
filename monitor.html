@@ -4,40 +4,61 @@
 <meta charset="utf-8">
 <title>Monitors</title>
 <style>
+  /* Royal Flame monitor bezels (Option B "Monitors First" — Dawn, July 31).
+     KEEP .wrap's gap + horizontal padding in sync with positionMonControls()
+     in console.js — TAKE/CUT float in the gap between the panes. */
   html, body { margin: 0; height: 100%; background: #0a101c; font-family: "Inter Tight", system-ui, sans-serif; }
-  .wrap { display: flex; height: 100%; gap: 128px; background: #0a101c; padding: 0 6px; }
+  .wrap { display: flex; height: 100%; gap: 128px; background: #0a101c; padding: 10px 6px; box-sizing: border-box; }
   .wrap.has-vert { gap: 90px; }
+  .pane {
+    flex: 1; min-width: 0; display: flex; flex-direction: column;
+    background: #0d1626; border: 1px solid rgba(201, 149, 44, 0.16);
+    border-radius: 12px; overflow: hidden;
+    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.45);
+  }
   .pane.vt { flex: 0 0 20%; display: none; }
-  .wrap.has-vert .pane.vt { display: block; }
-  .tag.vt-tag { background: #8899b8; color: #0f1a30; }
-  .pane { flex: 1; position: relative; background: #0a101c; overflow: hidden; }
-  .pane video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
-  .pane video.crop { display: none; }
+  .wrap.has-vert .pane.vt { display: flex; }
+  .phead {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 6px 12px; flex-shrink: 0;
+    font-size: 11px; font-weight: 800; letter-spacing: 0.16em;
+  }
+  .phead.pv-h { color: #d4a853; background: linear-gradient(180deg, rgba(201, 149, 44, 0.16), rgba(201, 149, 44, 0.04)); }
+  .phead.pg-h { color: #ff7a3d; background: linear-gradient(180deg, rgba(232, 93, 38, 0.18), rgba(232, 93, 38, 0.05)); }
+  .phead.vt-h { color: #8899b8; background: rgba(136, 153, 184, 0.08); }
+  .phead small { color: #6a7a96; font-weight: 600; letter-spacing: 0.04em; }
+  .phead .dot { width: 8px; height: 8px; border-radius: 50%; background: #ff7a3d; box-shadow: 0 0 9px #ff7a3d; display: inline-block; margin-right: 7px; }
+  .pview { position: relative; flex: 1; min-height: 0; }
+  .pview video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  .pview video.crop { display: none; }
   .mon-c { position: absolute; inset: 0; width: 100%; height: 100%; }
-  .tag { position: absolute; top: 10px; left: 10px; z-index: 2; font-size: 11px; font-weight: 800; letter-spacing: .14em; padding: 4px 10px; border-radius: 4px; }
-  .tag.pv { background: #d4a853; color: #0f1a30; }
-  .tag.pg { background: #d63b3b; color: #fff2ee; }
   .empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #6a7a96; font-size: 13px; text-align: center; padding: 0 16px; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="pane">
-    <span class="tag pv">PREVIEW</span>
-    <video id="pv" autoplay playsinline muted></video>
-    <canvas class="mon-c" id="pv-c" hidden></canvas>
-    <div class="empty" id="pv-empty">Waiting for the engine&rsquo;s preview&hellip; (the VPS must run the latest code)</div>
+    <div class="phead pv-h"><span>PREVIEW</span><small>staged &mdash; TAKE sends it to air</small></div>
+    <div class="pview">
+      <video id="pv" autoplay playsinline muted></video>
+      <canvas class="mon-c" id="pv-c" hidden></canvas>
+      <div class="empty" id="pv-empty">Waiting for the engine&rsquo;s preview&hellip; (the VPS must run the latest code)</div>
+    </div>
   </div>
   <div class="pane">
-    <span class="tag pg">PROGRAM</span>
-    <video id="pg" autoplay playsinline muted></video>
-    <div class="empty" id="pg-empty">Waiting for the program feed&hellip;</div>
+    <div class="phead pg-h"><span><span class="dot"></span>PROGRAM &middot; LIVE</span><small>on air &mdash; what viewers see</small></div>
+    <div class="pview">
+      <video id="pg" autoplay playsinline muted></video>
+      <div class="empty" id="pg-empty">Waiting for the program feed&hellip;</div>
+    </div>
   </div>
   <div class="pane vt">
-    <span class="tag vt-tag">9:16</span>
-    <video id="vt" autoplay playsinline muted></video>
-    <canvas class="mon-c" id="vt-c" hidden></canvas>
-    <div class="empty" id="vt-empty">Waiting for the portrait feed&hellip; (runner needs VERTICAL=1)</div>
+    <div class="phead vt-h"><span>9:16</span><small>portrait</small></div>
+    <div class="pview">
+      <video id="vt" autoplay playsinline muted></video>
+      <canvas class="mon-c" id="vt-c" hidden></canvas>
+      <div class="empty" id="vt-empty">Waiting for the portrait feed&hellip; (runner needs VERTICAL=1)</div>
+    </div>
   </div>
 </div>
 <script crossorigin src="https://unpkg.com/@daily-co/daily-js"></script>

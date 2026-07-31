@@ -79,6 +79,15 @@
 
     <div class="console-body">
       <div class="console-main">
+        <!-- Studio monitors (OBS-style, Option B "Monitors First" — Dawn, July 31):
+             PREVIEW | TAKE/CUT | PROGRAM are the stars, up top -->
+        <div class="monitors" id="monitors">
+          <iframe id="monitor-frame" title="Preview and Program monitors"></iframe>
+          <div class="mon-controls" id="mon-controls"></div>
+        </div>
+
+        <!-- The room (Daily call) — full screen while the engine is offline,
+             a filmstrip under the monitors while the studio is on -->
         <div class="stage" id="stage">
           <!-- WYSIWYG: the dashed outline is the 16:9 stream frame; the card sits
                inside it exactly where the broadcast shows it -->
@@ -93,120 +102,147 @@
 
         <iframe id="media-frame" class="media-frame" allow="autoplay" title="Media player"></iframe>
 
-        <!-- Studio monitors (OBS-style): Preview | Program, fed by the engine -->
-        <div class="monitors" id="monitors">
-          <iframe id="monitor-frame" title="Preview and Program monitors"></iframe>
-          <div class="mon-controls" id="mon-controls"></div>
+        <!-- Deck tabs — one page at a time (Option B) -->
+        <div class="deck-tabs" id="deck-tabs">
+          <button type="button" class="dt-btn active" data-page="broadcast">Broadcast</button>
+          <button type="button" class="dt-btn" data-page="cards">Lower Third</button>
+          <button type="button" class="dt-btn" data-page="prayer">Prayer</button>
+          <button type="button" class="dt-btn" data-page="scripture">Scripture</button>
+          <button type="button" class="dt-btn" data-page="media">Media</button>
+          <button type="button" class="dt-btn" data-page="engine">Engine</button>
+          <span class="dt-spacer"></span>
+          <button type="button" class="dt-btn dt-room" id="room-toggle">Room &#9662;</button>
         </div>
 
-        <!-- Production deck -->
+        <!-- Production deck — tabbed pages of cards (Option B) -->
         <div class="deck" id="deck">
 
-          <section class="deck-panel">
-            <p class="b-row-label">Broadcast &mdash; 16:9</p>
-            <button type="button" class="primary fire b-golive" id="go-live">Go Live</button>
-            <p class="error" id="bc-error" role="alert" hidden></p>
-            <p class="b-row-label">Layout</p>
-            <div class="b-modes" id="bc-modes">
-              <button type="button" class="p-btn mode-btn active" data-mode="grid">Grid</button>
-              <button type="button" class="p-btn mode-btn" data-mode="dominant">Speaker</button>
-              <button type="button" class="p-btn mode-btn" data-mode="split">Split</button>
-              <button type="button" class="p-btn mode-btn" data-mode="pip">PiP</button>
+          <section class="deck-page active" data-page="broadcast">
+            <div class="dp-card">
+              <p class="b-row-label">Broadcast &mdash; 16:9</p>
+              <button type="button" class="primary fire b-golive" id="go-live">Go Live</button>
+              <p class="error" id="bc-error" role="alert" hidden></p>
+              <p class="b-sublabel">Stream master volume</p>
+              <input type="range" id="master-vol" class="b-range" min="0" max="150" value="100">
+              <p class="b-row-label">Layout</p>
+              <div class="b-modes" id="bc-modes">
+                <button type="button" class="p-btn mode-btn active" data-mode="grid">Grid</button>
+                <button type="button" class="p-btn mode-btn" data-mode="dominant">Speaker</button>
+                <button type="button" class="p-btn mode-btn" data-mode="split">Split</button>
+                <button type="button" class="p-btn mode-btn" data-mode="pip">PiP</button>
+              </div>
             </div>
-            <p class="b-row-label">Destinations</p>
-            <label class="b-check"><input type="checkbox" id="yt-on" checked> YouTube &mdash; channel 1</label>
-            <input type="password" id="yt-key" class="b-input" autocomplete="off"
-                   placeholder="Stream key &mdash; YouTube Studio &rarr; Go live">
-            <label class="b-check"><input type="checkbox" id="yt2-on"> YouTube &mdash; channel 2</label>
-            <input type="password" id="yt2-key" class="b-input" autocomplete="off"
-                   placeholder="Stream key &mdash; second channel">
-            <label class="b-check"><input type="checkbox" id="fb-on"> Facebook</label>
-            <input type="password" id="fb-key" class="b-input" autocomplete="off"
-                   placeholder="Stream key &mdash; Live Producer">
-            <label class="b-check"><input type="checkbox" id="custom-on"> Custom RTMP</label>
-            <input type="text" id="custom-url" class="b-input" autocomplete="off"
-                   placeholder="rtmp://server/app/streamkey">
-            <p class="b-sublabel">Stream master volume</p>
-            <input type="range" id="master-vol" class="b-range" min="0" max="150" value="100">
-            <p class="b-row-label">Vertical &mdash; 9:16 &middot; Instagram</p>
-            <input type="password" id="ig-key" class="b-input" autocomplete="off"
-                   placeholder="Instagram stream key (new one each session)">
-            <button type="button" class="p-btn b-vert" id="go-vert">Go Live 9:16</button>
-            <p class="b-hint" id="vert-status">Runs as a second stream instance &mdash; Daily support must enable it once for the domain.</p>
-            <p class="b-hint">Keys stay on this device only. The card on your video mirrors exactly what viewers see on the stream.</p>
+            <div class="dp-card">
+              <p class="b-row-label">Destinations</p>
+              <label class="b-check"><input type="checkbox" id="yt-on" checked> YouTube &mdash; channel 1</label>
+              <input type="password" id="yt-key" class="b-input" autocomplete="off"
+                     placeholder="Stream key &mdash; YouTube Studio &rarr; Go live">
+              <label class="b-check"><input type="checkbox" id="yt2-on"> YouTube &mdash; channel 2</label>
+              <input type="password" id="yt2-key" class="b-input" autocomplete="off"
+                     placeholder="Stream key &mdash; second channel">
+              <label class="b-check"><input type="checkbox" id="fb-on"> Facebook</label>
+              <input type="password" id="fb-key" class="b-input" autocomplete="off"
+                     placeholder="Stream key &mdash; Live Producer">
+              <label class="b-check"><input type="checkbox" id="custom-on"> Custom RTMP</label>
+              <input type="text" id="custom-url" class="b-input" autocomplete="off"
+                     placeholder="rtmp://server/app/streamkey">
+              <p class="b-hint">Keys stay on this device only.</p>
+            </div>
+            <div class="dp-card">
+              <p class="b-row-label">Vertical &mdash; 9:16 &middot; Instagram</p>
+              <input type="password" id="ig-key" class="b-input" autocomplete="off"
+                     placeholder="Instagram stream key (new one each session)">
+              <button type="button" class="p-btn b-vert" id="go-vert">Go Live 9:16</button>
+              <p class="b-hint" id="vert-status">Runs as a second stream instance &mdash; Daily support must enable it once for the domain.</p>
+            </div>
           </section>
 
-          <section class="deck-panel">
-            <p class="b-row-label">Engine &mdash; program feed</p>
-            <p class="eng-status"><span class="eng-dot" id="eng-dot"></span> <span id="eng-status">Engine offline</span></p>
-            <button type="button" class="p-btn" id="eng-open">Open engine page</button>
-            <p class="b-row-label">Slates &mdash; fully editable</p>
-            <div class="b-modes" id="slate-row">
-              <button type="button" class="p-btn slate-btn active" data-slate="none">None</button>
-              <button type="button" class="p-btn slate-btn" data-slate="soon">Starting soon</button>
-              <button type="button" class="p-btn slate-btn" data-slate="brb">BRB</button>
-              <button type="button" class="p-btn slate-btn" data-slate="end">Goodbye</button>
+          <section class="deck-page" data-page="cards">
+            <div class="dp-card">
+              <p class="b-row-label">Lower third</p>
+              <input type="text" id="l3-name" class="b-input" maxlength="48"
+                     placeholder="Name &mdash; e.g. Pastor Olumide Oni">
+              <input type="text" id="l3-role" class="b-input mt6" maxlength="60"
+                     placeholder="Line 2 &mdash; e.g. Principal Regional Overseer">
+              <div class="b-modes mt8">
+                <button type="button" class="p-btn" id="l3-show">Show</button>
+                <button type="button" class="p-btn" id="l3-hide">Hide</button>
+              </div>
+              <p class="b-hint">One card shows at a time &mdash; lower third, prayer point, or scripture. The newest push wins.</p>
             </div>
-            <input type="text" id="slate-title" class="b-input mt6" maxlength="60"
-                   placeholder="Big line &mdash; anything you want">
-            <input type="text" id="slate-line" class="b-input mt6" maxlength="90"
-                   placeholder="Small line &mdash; e.g. Healing &amp; Deliverance Hour &middot; 7PM CT">
-            <div class="b-modes mt6">
-              <button type="button" class="p-btn" id="slate-show">Show slate</button>
+            <div class="dp-card">
+              <p class="b-row-label">Card style &mdash; all cards</p>
+              <p class="b-sublabel">Position on screen</p>
+              <div class="b-modes" id="cs-pos">
+                <button type="button" class="p-btn cp-btn active" data-pos="l">Left</button>
+                <button type="button" class="p-btn cp-btn" data-pos="c">Center</button>
+                <button type="button" class="p-btn cp-btn" data-pos="r">Right</button>
+              </div>
+              <p class="b-sublabel">Text alignment</p>
+              <div class="b-modes" id="cs-align">
+                <button type="button" class="p-btn al-btn active" data-al="left">Left</button>
+                <button type="button" class="p-btn al-btn" data-al="center">Center</button>
+                <button type="button" class="p-btn al-btn" data-al="right">Right</button>
+              </div>
+              <div class="b-modes mt6" id="cs-size">
+                <button type="button" class="p-btn sz-btn" data-sz="s">A&minus;</button>
+                <button type="button" class="p-btn sz-btn active" data-sz="m">A</button>
+                <button type="button" class="p-btn sz-btn" data-sz="l">A+</button>
+              </div>
+              <div class="b-modes mt6">
+                <input type="color" id="cs-title" value="#F0E6D0" title="Title color">
+                <input type="color" id="cs-sub" value="#B9C4DA" title="Second-line color">
+              </div>
+              <p class="b-hint">Position moves the card for every kind, live &mdash; Center runs the long banner.</p>
             </div>
-            <p class="error" id="eng-alert" role="alert" hidden></p>
-            <p class="b-hint" id="eng-hint">The engine paints the broadcast &mdash; real brand fonts,
-               boxed gold cards, instant switches &mdash; and Go Live locks the stream to it.
-               Keep its tab visible, in its own window. If it&rsquo;s offline, Go Live falls back
-               to Daily&rsquo;s composition (cards and mid-stream changes unreliable).</p>
           </section>
 
-          <section class="deck-panel">
-            <p class="b-row-label">Lower third</p>
-            <input type="text" id="l3-name" class="b-input" maxlength="48"
-                   placeholder="Name &mdash; e.g. Pastor Olumide Oni">
-            <input type="text" id="l3-role" class="b-input mt6" maxlength="60"
-                   placeholder="Line 2 &mdash; e.g. Principal Regional Overseer">
-            <div class="b-modes mt8">
-              <button type="button" class="p-btn" id="l3-show">Show</button>
-              <button type="button" class="p-btn" id="l3-hide">Hide</button>
+          <section class="deck-page" data-page="prayer">
+            <div class="dp-card wide">
+              <p class="b-row-label">Prayer points</p>
+              <textarea id="pp-list" class="b-input b-textarea" rows="4"
+                        placeholder="One prayer point per line&hellip;&#10;Every power assigned against my breakthrough, scatter, in the name of Jesus."></textarea>
+              <div class="b-modes mt8">
+                <button type="button" class="p-btn" id="pp-prev">&#9664;</button>
+                <button type="button" class="p-btn" id="pp-push">Push</button>
+                <button type="button" class="p-btn" id="pp-next">&#9654;</button>
+                <button type="button" class="p-btn" id="pp-hide">Hide</button>
+              </div>
+              <p class="b-hint">Points are saved on this device. Prev / Next push the change straight to the stream.</p>
             </div>
-            <p class="b-row-label">Card style &mdash; all cards</p>
-            <p class="b-sublabel">Position on screen</p>
-            <div class="b-modes" id="cs-pos">
-              <button type="button" class="p-btn cp-btn active" data-pos="l">Left</button>
-              <button type="button" class="p-btn cp-btn" data-pos="c">Center</button>
-              <button type="button" class="p-btn cp-btn" data-pos="r">Right</button>
-            </div>
-            <p class="b-sublabel">Text alignment</p>
-            <div class="b-modes" id="cs-align">
-              <button type="button" class="p-btn al-btn active" data-al="left">Left</button>
-              <button type="button" class="p-btn al-btn" data-al="center">Center</button>
-              <button type="button" class="p-btn al-btn" data-al="right">Right</button>
-            </div>
-            <div class="b-modes mt6" id="cs-size">
-              <button type="button" class="p-btn sz-btn" data-sz="s">A&minus;</button>
-              <button type="button" class="p-btn sz-btn active" data-sz="m">A</button>
-              <button type="button" class="p-btn sz-btn" data-sz="l">A+</button>
-            </div>
-            <div class="b-modes mt6">
-              <input type="color" id="cs-title" value="#F0E6D0" title="Title color">
-              <input type="color" id="cs-sub" value="#B9C4DA" title="Second-line color">
-            </div>
-            <p class="b-hint">One card shows at a time &mdash; lower third, prayer point, or scripture. The newest push wins. Position moves the card for every kind, live.</p>
-            <p class="b-row-label">Prayer points</p>
-            <textarea id="pp-list" class="b-input b-textarea" rows="4"
-                      placeholder="One prayer point per line&hellip;&#10;Every power assigned against my breakthrough, scatter, in the name of Jesus."></textarea>
-            <div class="b-modes mt8">
-              <button type="button" class="p-btn" id="pp-prev">&#9664;</button>
-              <button type="button" class="p-btn" id="pp-push">Push</button>
-              <button type="button" class="p-btn" id="pp-next">&#9654;</button>
-              <button type="button" class="p-btn" id="pp-hide">Hide</button>
-            </div>
-            <p class="b-hint">Points are saved on this device. Prev / Next push the change straight to the stream.</p>
           </section>
 
-          <section class="deck-panel">
+          <section class="deck-page" data-page="engine">
+            <div class="dp-card">
+              <p class="b-row-label">Engine &mdash; program feed</p>
+              <p class="eng-status"><span class="eng-dot" id="eng-dot"></span> <span id="eng-status">Engine offline</span></p>
+              <button type="button" class="p-btn" id="eng-open">Open engine page</button>
+              <p class="error" id="eng-alert" role="alert" hidden></p>
+              <p class="b-hint" id="eng-hint">The engine paints the broadcast &mdash; real brand fonts,
+                 boxed gold cards, instant switches &mdash; and Go Live locks the stream to it.
+                 Keep its tab visible, in its own window. If it&rsquo;s offline, Go Live falls back
+                 to Daily&rsquo;s composition (cards and mid-stream changes unreliable).</p>
+            </div>
+            <div class="dp-card">
+              <p class="b-row-label">Slates &mdash; fully editable</p>
+              <div class="b-modes" id="slate-row">
+                <button type="button" class="p-btn slate-btn active" data-slate="none">None</button>
+                <button type="button" class="p-btn slate-btn" data-slate="soon">Starting soon</button>
+                <button type="button" class="p-btn slate-btn" data-slate="brb">BRB</button>
+                <button type="button" class="p-btn slate-btn" data-slate="end">Goodbye</button>
+              </div>
+              <input type="text" id="slate-title" class="b-input mt6" maxlength="60"
+                     placeholder="Big line &mdash; anything you want">
+              <input type="text" id="slate-line" class="b-input mt6" maxlength="90"
+                     placeholder="Small line &mdash; e.g. Healing &amp; Deliverance Hour &middot; 7PM CT">
+              <div class="b-modes mt6">
+                <button type="button" class="p-btn" id="slate-show">Show slate</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="deck-page" data-page="media">
+            <div class="dp-card">
             <p class="b-row-label">Media &mdash; play a video</p>
             <select id="md-src" class="b-input">
               <option value="link">From a link (.mp4 / .m3u8)</option>
@@ -232,9 +268,11 @@
               <button type="button" class="p-btn danger" id="md-stop">Stop</button>
             </div>
             <p class="b-hint" id="md-status">Both options play for the room and the stream. A file plays through your Share slot with live volume control.</p>
+            </div>
           </section>
 
-          <section class="deck-panel">
+          <section class="deck-page" data-page="scripture">
+            <div class="dp-card">
             <p class="b-row-label">Scripture &mdash; KJV</p>
             <input type="text" id="sc-input" class="b-input mt8" maxlength="60" list="bible-books"
                    placeholder="Any reference &mdash; e.g. Psalm 144:1">
@@ -259,6 +297,7 @@
               <button type="button" class="p-btn" id="sc-hide">Hide</button>
             </div>
             <p class="b-hint" id="sc-status">King James Version &middot; bible-api.com</p>
+            </div>
           </section>
 
         </div>
