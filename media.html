@@ -35,6 +35,10 @@
       url = URL.createObjectURL(d.file);
       v.src = url;
       v.playsInline = true;
+      // Must be in the DOM and nominally visible or the browser won't decode frames
+      v.style.width = "160px";
+      v.style.height = "90px";
+      document.body.appendChild(v);
       v.onended = function () { tell("ended"); cleanup(); };
       v.play().then(function () {
         var cap = v.captureStream ? v.captureStream() : (v.mozCaptureStream ? v.mozCaptureStream() : null);

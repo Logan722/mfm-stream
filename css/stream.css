@@ -896,6 +896,19 @@ body.capture-wide #portrait-canvas {
   background: var(--bg-navy-deep);
 }
 
+/* The media helper frame must stay technically visible (2px) — a hidden
+   frame makes Chromium skip video decoding: audio only, blank picture. */
+.media-frame {
+  position: fixed;
+  right: 1px;
+  bottom: 1px;
+  width: 2px;
+  height: 2px;
+  opacity: 0.01;
+  border: 0;
+  pointer-events: none;
+}
+
 /* Media panel: file volume */
 .b-sublabel {
   font-size: 0.68rem;
