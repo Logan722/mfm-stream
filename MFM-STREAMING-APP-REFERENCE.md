@@ -477,6 +477,20 @@ C command rail / D theater) and picked **B**. Shipped:
   message instead of "[object Object]".
 - Engine build jul31-n15 confirmed on the VPS during the test.
 
+### ROOT CAUSE of the black monitors (July 31, late): HIDDEN=1 on the runner
+- `HIDDEN=1` in runner/.env makes the engine join presence-hidden
+  (`permissions.hasPresence:false`). A presence-hidden participant CANNOT be
+  found via `participants()` or subscribed via `updateParticipant` by other
+  clients — so the console monitors can never attach, even though heartbeats
+  (app-messages) still flow and the Engine tab says "online". Also explains the
+  missing PROGRAM tile in the room.
+- **Rule: monitors and HIDDEN=1 are mutually exclusive. Keep HIDDEN unset.**
+  Fix on the droplet: remove HIDDEN from runner/.env → `docker compose up -d --build`.
+  Participants still get no PROGRAM media (canReceive in token.js); they just see
+  a quiet tile. Hiding the TILE without killing presence = future work (queued).
+- monitor.html now says this in the pane message and also falls back to the
+  console-supplied engine sid hint.
+
 ### NEXT SESSION — top of queue (July 30, end of day)
 1. **Card style controls, modeled on Dawn's OBS "Lower Thirds" plugin screenshot**
    (analyzed): text alignment L/C/R, font size, line spacing, font choice, BOLD toggles,

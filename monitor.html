@@ -70,6 +70,7 @@
   var got = { pv: false, pg: false, vt: false }; // which panes have a live track
   var tries = 0;
   var joined = false;
+  var hintSid = null; // engine session id the console knew at join time
 
   function say(pane, msg) {
     var el = document.getElementById(pane + "-empty");
@@ -89,6 +90,7 @@
     var Daily = window.Daily || window.DailyIframe;
     if (!Daily || !Daily.createCallObject) { sayWaiting("video library failed to load — refresh the console"); return; }
     if (d.vertical) document.querySelector(".wrap").classList.add("has-vert");
+    hintSid = d.engineSid || null;
     call = Daily.createCallObject({
       subscribeToTracksAutomatically: false, // ONLY the engine's tracks
       videoSource: false,
@@ -129,23 +131,27 @@
       Object.keys(ps).forEach(function (k) { if (isEngine(ps[k])) eng = ps[k]; });
     } catch (e) { /* fine — retry later */ }
     tries++;
-    if (!eng) {
-      sayWaiting("the engine isn’t in the room (check the Engine tab / droplet)");
+    var sid = eng ? eng.session_id : hintSid; // fall back to the console's hint
+    if (!sid) {
+      sayWaiting("the engine isn’t in the room (is HIDDEN=1 set on the runner? presence-hidden engines can’t be monitored — remove it from runner/.env)");
       return;
     }
+    if (!eng) {
+      sayWaiting("the engine is invisible to the monitor (HIDDEN=1 on the runner?) — trying its last known id");
+    }
     try {
-      call.updateParticipant(eng.session_id, {
+      call.updateParticipant(sid, {
         setSubscribedTracks: { video: true, screenVideo: true, custom: true, audio: false },
       });
     } catch (err) {
       // Some daily-js builds reject `custom` when no custom track exists yet.
       try {
-        call.updateParticipant(eng.session_id, {
+        call.updateParticipant(sid, {
           setSubscribedTracks: { video: true, screenVideo: true, audio: false },
         });
       } catch (err2) { /* retry on the timer */ }
     }
-    sayWaiting();
+    if (eng) sayWaiting();
   }
 
   function attach(e) {
