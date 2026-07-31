@@ -48,6 +48,21 @@ let ffmpeg = null;
 let ffmpegInfo = { running: false, startedAt: 0, detail: "" };
 let ffmpegVert = null;
 let ffmpegVertInfo = { running: false, startedAt: 0, detail: "" };
+// Last few stderr lines from each FFmpeg — surfaced to the console on an
+// unexpected exit so Dawn sees WHY (bad key, 403, DNS…), not just "code 1".
+let ffmpegErrTail = [];
+let ffmpegVertErrTail = [];
+
+function pushTail(tail, line) {
+  line = String(line).trim();
+  if (!line) return;
+  tail.push(line.slice(0, 160));
+  while (tail.length > 4) tail.shift();
+}
+
+function tailText(tail) {
+  return tail.length ? " — " + tail.join(" · ").slice(-300) : "";
+}
 let intentionalStopVert = false;
 let lastUrls = null;          // for auto-retry after an unexpected exit
 let ffmpegRetriesLeft = 0;
@@ -203,9 +218,10 @@ function startFfmpegVert(url) {
   ffmpegVert = spawn("ffmpeg", args, { stdio: ["ignore", "pipe", "pipe"] });
   ffmpegVertInfo = { running: true, startedAt: Date.now(), detail: "Instagram 9:16" };
   pushFfmpegState();
+  ffmpegVertErrTail = [];
   ffmpegVert.stderr.on("data", (d) => {
     const line = String(d).trim();
-    if (line) log("ffmpeg-vert:", line.slice(0, 300));
+    if (line) { log("ffmpeg-vert:", line.slice(0, 300)); pushTail(ffmpegVertErrTail, line); }
   });
   ffmpegVert.on("exit", (code, signal) => {
     ffmpegVert = null;
@@ -214,7 +230,7 @@ function startFfmpegVert(url) {
       startedAt: 0,
       detail: intentionalStopVert || code === 0 || signal
         ? ""
-        : "ffmpeg-vert exited with code " + code,
+        : "ffmpeg-vert exited with code " + code + tailText(ffmpegVertErrTail),
     };
     log("vertical FFmpeg exited", { code, signal, intentionalStopVert });
     pushFfmpegState();
@@ -259,9 +275,10 @@ function startFfmpeg(urls) {
   };
   pushFfmpegState();
 
+  ffmpegErrTail = [];
   ffmpeg.stderr.on("data", (d) => {
     const line = String(d).trim();
-    if (line) log("ffmpeg:", line.slice(0, 300));
+    if (line) { log("ffmpeg:", line.slice(0, 300)); pushTail(ffmpegErrTail, line); }
   });
 
   ffmpeg.on("exit", (code, signal) => {
@@ -272,7 +289,7 @@ function startFfmpeg(urls) {
       startedAt: 0,
       detail: intentionalStop || code === 0 || signal
         ? ""
-        : "ffmpeg exited with code " + code,
+        : "ffmpeg exited with code " + code + tailText(ffmpegErrTail),
     };
     log("FFmpeg exited", { code, signal, intentionalStop });
     pushFfmpegState();

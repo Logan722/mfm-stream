@@ -10,6 +10,7 @@
      and joins the room as MEDIA publishing the video+audio as its cam/mic.
      No screen sharing involved — this frame owns the stream. */
   var call = null, v = null, ac = null, gain = null, url = null;
+  var cvs = null, drawTimer = null;
 
   function tell(state, detail) {
     try { parent.postMessage({ t: "mfm-media-state", state: state, detail: detail || "" }, window.location.origin); }
@@ -17,6 +18,8 @@
   }
 
   function cleanup() {
+    if (drawTimer) { clearInterval(drawTimer); drawTimer = null; }
+    if (cvs) { try { cvs.remove(); } catch (e) {} cvs = null; }
     if (call) { try { call.leave(); } catch (e) {} try { call.destroy(); } catch (e) {} call = null; }
     if (v) { try { v.pause(); v.removeAttribute("src"); v.load(); } catch (e) {} v = null; }
     if (url) { try { URL.revokeObjectURL(url); } catch (e) {} url = null; }
@@ -41,7 +44,22 @@
       document.body.appendChild(v);
       v.onended = function () { tell("ended"); cleanup(); };
       v.play().then(function () {
-        var cap = v.captureStream ? v.captureStream() : (v.mozCaptureStream ? v.mozCaptureStream() : null);
+        // Publish a CANVAS stream, not the <video> element's own capture:
+        // Chromium quietly stops painting (and therefore capturing) a video
+        // element it decides is invisible — the "audio only, blank picture"
+        // bug (Dawn, July 31). A canvas we repaint ourselves at 30fps keeps
+        // producing frames no matter what the compositor thinks of us.
+        var cw = v.videoWidth || 1280, ch = v.videoHeight || 720;
+        cvs = document.createElement("canvas");
+        cvs.width = cw; cvs.height = ch;
+        cvs.style.cssText = "position:absolute;top:0;left:0;width:160px;height:90px;opacity:0.01";
+        document.body.appendChild(cvs);
+        var g = cvs.getContext("2d");
+        drawTimer = setInterval(function () {
+          if (v && v.readyState >= 2) { try { g.drawImage(v, 0, 0, cw, ch); } catch (e) { /* fine */ } }
+        }, 33);
+        var cap = cvs.captureStream ? cvs.captureStream(30)
+          : (v.captureStream ? v.captureStream() : (v.mozCaptureStream ? v.mozCaptureStream() : null));
         var vt = cap && cap.getVideoTracks()[0];
         if (!vt) { tell("error", "this browser can't capture the file — use Chrome or Edge"); cleanup(); return; }
         var AC = window.AudioContext || window.webkitAudioContext;

@@ -2002,20 +2002,37 @@
         return;
       }
 
+      // A YouTube/Vimeo/Drive page is a WEBSITE, not a video file — the
+      // player can't pull those (and YouTube doesn't allow it). Say so
+      // plainly instead of letting it fail with a cryptic error (Dawn, Jul 31).
+      if (/(youtube\.com|youtu\.be|vimeo\.com|facebook\.com|fb\.watch|instagram\.com|tiktok\.com|drive\.google\.com|dropbox\.com\/s)/i.test(url)) {
+        mdNote("That's a page link (YouTube/Vimeo/Drive…), not a video file — those can't be pulled into the stream. Use a direct link ending in .mp4 or .m3u8, or download the video and use “From this computer”.");
+        return;
+      }
+
       mdNote("Loading video…");
       persistState();
+
+      function whyText(err) {
+        if (!err) return "unknown error";
+        if (typeof err === "string") return err;
+        var m = err.errorMsg || err.message || (err.error && (err.error.msg || err.error.message));
+        if (m) return String(m);
+        try { return JSON.stringify(err).slice(0, 140); } catch (e) { return "unknown error"; }
+      }
+
       try {
         callFrame.startRemoteMediaPlayer({ url: url, settings: { state: "play" } })
           .then(function (res) {
             if (res && res.session_id) md.sessionId = res.session_id;
           })
           .catch(function (err) {
-            mdNote("Could not play: " + ((err && err.errorMsg) || (err && err.message) || err) +
-              " — the link must be a direct, publicly reachable video file.");
+            mdNote("Could not play: " + whyText(err) +
+              " — the link must be a direct, publicly reachable video file (.mp4 or .m3u8).");
             mdButtons();
           });
       } catch (e) {
-        mdNote("Could not play: " + (e.message || e));
+        mdNote("Could not play: " + whyText(e));
       }
     });
   }

@@ -964,15 +964,18 @@ body.capture-wide #portrait-canvas {
   background: var(--bg-navy-deep);
 }
 
-/* The media helper frame must stay technically visible (2px) — a hidden
-   frame makes Chromium skip video decoding: audio only, blank picture. */
+/* The media helper frame must stay genuinely renderable — Chromium skips
+   video decoding for elements it considers invisible (audio only, blank
+   picture). 2px wasn't enough (July 31): give it real size at ~invisible
+   opacity, out of the way and click-through. media.html also publishes via
+   a canvas pump now, so this is belt-and-braces. */
 .media-frame {
   position: fixed;
   right: 1px;
   bottom: 1px;
-  width: 2px;
-  height: 2px;
-  opacity: 0.01;
+  width: 160px;
+  height: 90px;
+  opacity: 0.02;
   border: 0;
   pointer-events: none;
 }
