@@ -632,6 +632,59 @@ C command rail / D theater) and picked **B**. Shipped:
   of it, but don't tempt it — the VPS in E2 removes this concern). `/api/diag` stays for
   reference (remove in E3).
 
+### Waiting room / admit-before-join — SHIPPED (Aug 1, 2026) · Feature 4, pending dry-run
+Hardening (Phase 7): the host now approves each minister before they enter.
+- **Rooms carry `enable_knocking:true`** (token.js sets it on create AND enables it
+  in-place on pre-existing rooms). **Ministers join TOKENLESS** — token.js returns
+  `token:null` for the participant role. This is mandatory: Daily auto-admits ANY
+  meeting-token holder past the wait (verified in Daily docs), so only tokenless users
+  knock. Host / engine / monitor / warden keep their tokens and bypass the wait.
+- **join.js:** tokenless Prebuilt join passes the display name via `join({ userName })`
+  (no token to carry it); Daily Prebuilt shows its native "waiting to be let in" screen.
+  Client-side guard rejects the reserved name PROGRAM.
+- **Echo block moved to the host (console.js `applyEngineReceive`).** A tokenless
+  minister arrives with default `canReceive` and would hear PROGRAM's mic (the whole-room
+  MIX = echo). The token used to block that. Now the HOST re-applies it via
+  `updateParticipant(sid,{updatePermissions:{canReceive:{…engine:false}}})` on
+  `participant-joined` + a `joined-meeting` sweep. This is valid ONLY because the host is
+  a meeting admin — **Daily forbids a participant from restricting its own `canReceive`,
+  and `setSubscribedTracks` throws while auto-subscribe is on**, so a participant-side
+  fix in join.js is impossible (both confirmed in Daily docs). Co-hosts keep PROGRAM
+  VIDEO (confidence monitor), never audio. ⚠️ Known window: the block lands a beat AFTER
+  the minister joins, so admitting someone *while the engine is already broadcasting
+  audio* can briefly echo (~0.5–2s) until the permission round-trips. Harmless when the
+  engine isn't live; watch it if admitting mid-service.
+- **Admit UI is board-integrated (Dawn's pick, Option 2) via a hidden "warden."**
+  Daily's `updateWaitingParticipant`/`updateWaitingParticipants` are **✗ Prebuilt** —
+  the console's Prebuilt frame can SEE the lobby (`waitingParticipants()` + events are
+  ✓ Prebuilt) but can't ACT on it. So the console spawns **`lobby.html` in a hidden
+  `#lobby-frame`**: a presence-hidden OWNER call-object (new `warden` token role,
+  HOST_KEY-guarded, `user_id mfm-warden`, publishes/receives nothing) that watches the
+  lobby and performs admit/deny. Same-origin postMessage bridge: warden → console sends
+  the waiting list; console → warden sends admit / deny / admit-all (admit-all loops the
+  singular method — the bulk one takes an updates-object, an easy footgun). Warden id ==
+  admit id, so its list is the single source of truth. Buttons disable until the warden
+  reports ready; a plain-words note shows while it connects.
+- **"New knock" alert (Dawn asked for pulsing):** the People-board strip breathes gold
+  the whole time anyone waits, one-shot fire-flash on a genuinely NEW id (diffed by id,
+  not count), a pulsing dot in the strip header, a pulsing gold dot on the People toggle
+  (`body.has-knocks`), and a soft two-note WebAudio chime — **chime muted while `bc.live`**
+  so it can't bleed through the host mic onto the on-air mix.
+- **engine.js** now also drops MONITOR/WARDEN tiles (insurance if the hidden mint ever
+  falls back to visible).
+- ⚠️ **TWO risks that only a live dry-run can settle (sandbox can't join Daily/WSS):**
+  (1) does a `hasPresence:false` OWNER actually receive waiting events and admit? If the
+  board never shows knockers, that assumption failed — flip the warden to a visible owner
+  (remove `hasPresence:false` in token.js) or admit from Daily Prebuilt's OWN native
+  People-panel admit UI, which still works as a fallback. (2) does tokenless Prebuilt
+  knocking behave as expected on a phone? **Behavior change to tell the host:** the host
+  must be IN the console for anyone to be admitted (the warden only runs while in-call),
+  and the room can no longer fill before the host arrives.
+- **Files:** `lobby.html` (new), `js/console.js`, `js/join.js`, `js/engine.js`,
+  `netlify/functions/token.js`, `host.html`, `css/stream.css`. Netlify-only deploy — no
+  VPS restart needed (console/participant pages). New env need: none (warden reuses
+  HOST_KEY). Repo is PUBLIC — no keys committed.
+
 ## Phased roadmap
 
 1. **Foundation room** — join link + multi-person interactive room. *Prove the core.* ✅
