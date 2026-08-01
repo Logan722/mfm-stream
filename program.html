@@ -83,6 +83,27 @@
   </div>
 
   <script crossorigin src="https://unpkg.com/@daily-co/daily-js"></script>
+  <script type="module">
+    // Face detector for 9:16 auto-framing — fully optional and fail-safe.
+    // If the CDN or model can't load, __mfmFaceReady stays false and the
+    // engine simply uses its normal center crop.
+    try {
+      const mp = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs");
+      const vision = await mp.FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
+      const det = await mp.FaceDetector.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
+          delegate: "CPU"
+        },
+        runningMode: "VIDEO"
+      });
+      window.__mfmFaceDetector = det;
+      window.__mfmFaceReady = true;
+    } catch (e) {
+      window.__mfmFaceReady = false;
+      console.warn("[mfm] auto-frame face detector unavailable:", (e && e.message) || e);
+    }
+  </script>
   <script src="/js/engine.js"></script>
 </body>
 </html>

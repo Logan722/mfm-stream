@@ -2424,6 +2424,19 @@
     }
   })();
 
+  /* ---------- Auto-frame 9:16 toggle ---------- */
+  (function () {
+    var af = document.getElementById("autoframe-on");
+    if (!af) return;
+    try { af.checked = localStorage.getItem("mfm-autoframe") === "1"; } catch (e) { /* fine */ }
+    function apply() {
+      try { localStorage.setItem("mfm-autoframe", af.checked ? "1" : "0"); } catch (e) { /* fine */ }
+      if (typeof sendCmd === "function") sendCmd({ cmd: "autoframe", on: af.checked });
+    }
+    af.addEventListener("change", apply);
+    setTimeout(function () { if (af.checked) apply(); }, 2000);
+  })();
+
   /* ---------- Init ---------- */
   renderScene();
 })();

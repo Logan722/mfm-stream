@@ -611,6 +611,8 @@
           window.__mfmRunner(JSON.stringify({ action: d.action, urls: d.urls || [] }));
         } catch (e) { /* runner gone — watchdog will notice */ }
       }
+    } else if (d.cmd === "autoframe") {
+      AF.enabled = !!d.on;
     } else if (d.cmd === "ping") {
       sendState(ev.fromId);
       return;
@@ -1134,6 +1136,36 @@
     ctx.textAlign = "left";
   }
 
+  /* ---------- Auto-frame (9:16): keep the featured face centered ----------
+     Detection runs via MediaPipe (loaded fail-safe in program.html). If it
+     never loads or errors, AF stays neutral and the portrait uses the normal
+     center crop — the broadcast is never at risk from this. */
+  var AF = { enabled: false, cx: 0.5, cy: 0.5, tx: 0.5, ty: 0.5, lastSeen: 0, lastDetect: 0 };
+
+  function afDetect(el) {
+    if (!AF.enabled || !window.__mfmFaceReady || !window.__mfmFaceDetector) return;
+    var now = Date.now();
+    if (now - AF.lastDetect < 110) return; // ~9fps detection; render smooths between
+    AF.lastDetect = now;
+    try {
+      var res = window.__mfmFaceDetector.detectForVideo(el, now);
+      var ds = res && res.detections;
+      if (ds && ds.length) {
+        var best = ds[0], barea = -1, i, bb;
+        for (i = 0; i < ds.length; i++) {
+          bb = ds[i].boundingBox; if (!bb) continue;
+          var a = bb.width * bb.height; if (a > barea) { barea = a; best = ds[i]; }
+        }
+        bb = best.boundingBox;
+        var vw = el.videoWidth || 1, vh = el.videoHeight || 1;
+        AF.tx = Math.max(0, Math.min(1, (bb.originX + bb.width / 2) / vw));
+        AF.ty = Math.max(0, Math.min(1, (bb.originY + bb.height / 2) / vh));
+        AF.lastSeen = now;
+      }
+    } catch (e) { /* detection hiccup — hold last position */ }
+    if (now - AF.lastSeen > 1500) { AF.tx += (0.5 - AF.tx) * 0.06; AF.ty += (0.5 - AF.ty) * 0.06; }
+  }
+
   /* ---------- Portrait (9:16) — simple focused composition ---------- */
   function drawPortrait() {
     if (!portraitCtx) return;
@@ -1159,8 +1191,19 @@
     if (vw && vh) {
       var srcAspect = vw / vh, dstAspect = PW / PH;
       var sx = 0, sy = 0, sw = vw, sh = vh;
-      if (srcAspect > dstAspect) { sw = vh * dstAspect; sx = (vw - sw) / 2; }
-      else { sh = vw / dstAspect; sy = (vh - sh) / 2; }
+      if (srcAspect > dstAspect) { sw = vh * dstAspect; } else { sh = vw / dstAspect; }
+      if (AF.enabled) {
+        afDetect(el);
+        AF.cx += (AF.tx - AF.cx) * 0.12; // calm-cameraman smoothing
+        AF.cy += (AF.ty - AF.cy) * 0.12;
+        sx = AF.cx * vw - sw / 2;
+        sy = AF.cy * vh - sh / 2;
+      } else {
+        sx = (vw - sw) / 2;
+        sy = (vh - sh) / 2;
+      }
+      if (!(sx >= 0)) sx = 0; if (sx > vw - sw) sx = vw - sw;
+      if (!(sy >= 0)) sy = 0; if (sy > vh - sh) sy = vh - sh;
       ctx.drawImage(el, sx, sy, sw, sh, 0, 0, PW, PH);
     } else {
       drawPlaceholder(main, 0, 0, PW, PH);
