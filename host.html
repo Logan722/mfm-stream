@@ -133,6 +133,24 @@
               </div>
             </div>
             <div class="dp-card">
+              <p class="b-row-label">Service presets</p>
+              <div class="b-modes">
+                <button type="button" class="p-btn preset-btn" data-preset="hdh">Healing &amp; Deliverance Hour</button>
+                <button type="button" class="p-btn preset-btn" data-preset="ohe">Open-Heaven Encounter</button>
+              </div>
+              <button type="button" class="p-btn mt6" id="preset-edit">Edit preset keys</button>
+              <div id="preset-editor" hidden>
+                <p class="b-sublabel">Healing &amp; Deliverance Hour</p>
+                <input type="password" id="pe-hdh-yt1" class="b-input mt6" autocomplete="off" placeholder="YouTube ch.1 key">
+                <input type="password" id="pe-hdh-yt2" class="b-input mt6" autocomplete="off" placeholder="YouTube ch.2 key">
+                <p class="b-sublabel">Open-Heaven Encounter</p>
+                <input type="password" id="pe-ohe-yt1" class="b-input mt6" autocomplete="off" placeholder="YouTube ch.1 key">
+                <input type="password" id="pe-ohe-yt2" class="b-input mt6" autocomplete="off" placeholder="YouTube ch.2 key">
+                <button type="button" class="p-btn mt6" id="preset-save">Save presets (this device)</button>
+              </div>
+              <p class="b-hint" id="preset-note">One tap fills your two YouTube keys. Saved on this device only.</p>
+            </div>
+            <div class="dp-card">
               <p class="b-row-label">Destinations</p>
               <label class="b-check"><input type="checkbox" id="yt-on" checked> YouTube &mdash; channel 1</label>
               <input type="password" id="yt-key" class="b-input" autocomplete="off"
@@ -315,6 +333,9 @@
               <input type="file" id="md-file" accept="video/*" hidden>
               <p class="b-sublabel">File volume &mdash; the room and the stream hear this</p>
               <input type="range" id="md-vol" class="b-range" min="0" max="100" value="90">
+              <p class="b-sublabel">Timeline &mdash; drag to jump to any point</p>
+              <input type="range" id="md-seek" class="b-range" min="0" max="1000" value="0">
+              <p class="b-hint" id="md-time">0:00 / 0:00</p>
             </div>
             <div class="b-modes mt8">
               <button type="button" class="p-btn" id="md-show">Show full-screen</button>

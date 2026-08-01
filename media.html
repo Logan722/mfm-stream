@@ -10,7 +10,7 @@
      and joins the room as MEDIA publishing the video+audio as its cam/mic.
      No screen sharing involved — this frame owns the stream. */
   var call = null, v = null, ac = null, gain = null, url = null;
-  var cvs = null, drawTimer = null;
+  var cvs = null, drawTimer = null, timeTimer = null;
 
   function tell(state, detail) {
     try { parent.postMessage({ t: "mfm-media-state", state: state, detail: detail || "" }, window.location.origin); }
@@ -19,6 +19,7 @@
 
   function cleanup() {
     if (drawTimer) { clearInterval(drawTimer); drawTimer = null; }
+    if (timeTimer) { clearInterval(timeTimer); timeTimer = null; }
     if (cvs) { try { cvs.remove(); } catch (e) {} cvs = null; }
     if (call) { try { call.leave(); } catch (e) {} try { call.destroy(); } catch (e) {} call = null; }
     if (v) { try { v.pause(); v.removeAttribute("src"); v.load(); } catch (e) {} v = null; }
@@ -58,6 +59,9 @@
         drawTimer = setInterval(function () {
           if (v && v.readyState >= 2) { try { g.drawImage(v, 0, 0, cw, ch); } catch (e) { /* fine */ } }
         }, 33);
+        timeTimer = setInterval(function () {
+          if (v) { try { parent.postMessage({ t: "mfm-media-time", cur: v.currentTime || 0, dur: v.duration || 0 }, window.location.origin); } catch (e) { /* fine */ } }
+        }, 250);
         var cap = cvs.captureStream ? cvs.captureStream(30)
           : (v.captureStream ? v.captureStream() : (v.mozCaptureStream ? v.mozCaptureStream() : null));
         var vt = cap && cap.getVideoTracks()[0];
@@ -92,6 +96,8 @@
       v.play(); tell("playing");
     } else if (d.t === "mfm-media-volume" && gain) {
       gain.gain.value = Math.max(0, Math.min(1.5, Number(d.value) || 0));
+    } else if (d.t === "mfm-media-seek" && v) {
+      try { v.currentTime = Number(d.value) || 0; } catch (e) { /* fine */ }
     } else if (d.t === "mfm-media-stop") {
       cleanup(); tell("stopped");
     }

@@ -2357,6 +2357,73 @@
     els.scHide.addEventListener("click", function () { hideKind("scripture"); });
   }
 
+  /* ---------- Service key presets (this device only) ---------- */
+  (function () {
+    var PKEY = "mfm-stream-presets";
+    function loadP() { try { return JSON.parse(localStorage.getItem(PKEY) || "{}"); } catch (e) { return {}; } }
+    function saveP(p) { try { localStorage.setItem(PKEY, JSON.stringify(p)); } catch (e) { /* fine */ } }
+    var note = document.getElementById("preset-note");
+    function say(m) { if (note) note.textContent = m; }
+    function applyPreset(which) {
+      var p = loadP()[which];
+      if (!p || (!p.yt1 && !p.yt2)) { say("No keys saved for this service yet — tap “Edit preset keys” to add them once."); return; }
+      if (els.ytKey && p.yt1) { els.ytKey.value = p.yt1; if (els.ytOn) els.ytOn.checked = true; }
+      if (els.yt2Key && p.yt2) { els.yt2Key.value = p.yt2; if (els.yt2On) els.yt2On.checked = true; }
+      if (typeof persistState === "function") persistState();
+      say("Loaded YouTube keys for " + (which === "hdh" ? "Healing & Deliverance Hour" : "Open-Heaven Encounter") + ". Add Facebook/Instagram, then Go Live.");
+    }
+    Array.prototype.forEach.call(document.querySelectorAll(".preset-btn"), function (b) {
+      b.addEventListener("click", function () { applyPreset(b.getAttribute("data-preset")); });
+    });
+    var editBtn = document.getElementById("preset-edit");
+    var editor = document.getElementById("preset-editor");
+    if (editBtn && editor) {
+      editBtn.addEventListener("click", function () {
+        editor.hidden = !editor.hidden;
+        if (!editor.hidden) {
+          var p = loadP();
+          var f = function (id, v) { var e = document.getElementById(id); if (e) e.value = v || ""; };
+          f("pe-hdh-yt1", (p.hdh || {}).yt1); f("pe-hdh-yt2", (p.hdh || {}).yt2);
+          f("pe-ohe-yt1", (p.ohe || {}).yt1); f("pe-ohe-yt2", (p.ohe || {}).yt2);
+        }
+      });
+    }
+    var saveBtn = document.getElementById("preset-save");
+    if (saveBtn) {
+      saveBtn.addEventListener("click", function () {
+        var g = function (id) { var e = document.getElementById(id); return e ? e.value.trim() : ""; };
+        saveP({ hdh: { yt1: g("pe-hdh-yt1"), yt2: g("pe-hdh-yt2") }, ohe: { yt1: g("pe-ohe-yt1"), yt2: g("pe-ohe-yt2") } });
+        if (editor) editor.hidden = true;
+        say("Presets saved on this device. Tap a service button to load its keys.");
+      });
+    }
+  })();
+
+  /* ---------- Media timeline scrubber (file playback) ---------- */
+  (function () {
+    var seek = document.getElementById("md-seek");
+    var timeEl = document.getElementById("md-time");
+    var dur = 0, dragging = false;
+    function fmt(s) { s = Math.max(0, Math.floor(s || 0)); var m = Math.floor(s / 60); var ss = s % 60; return m + ":" + (ss < 10 ? "0" : "") + ss; }
+    window.addEventListener("message", function (ev) {
+      var d = ev.data;
+      if (!d || d.t !== "mfm-media-time") return;
+      dur = d.dur || 0;
+      if (timeEl) timeEl.textContent = fmt(d.cur) + " / " + fmt(dur);
+      if (seek && !dragging && dur > 0) seek.value = String(Math.round((d.cur / dur) * 1000));
+    });
+    if (seek) {
+      seek.addEventListener("input", function () {
+        dragging = true;
+        if (timeEl && dur) timeEl.textContent = fmt((seek.value / 1000) * dur) + " / " + fmt(dur);
+      });
+      seek.addEventListener("change", function () {
+        dragging = false;
+        if (dur > 0 && typeof mediaPost === "function") mediaPost({ t: "mfm-media-seek", value: (seek.value / 1000) * dur });
+      });
+    }
+  })();
+
   /* ---------- Init ---------- */
   renderScene();
 })();
