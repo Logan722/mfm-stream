@@ -18,6 +18,7 @@ $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = "FixedSingle"
 $form.MaximizeBox = $false
 $form.BackColor = $navy
+try { $form.Icon = New-Object System.Drawing.Icon((Join-Path $PSScriptRoot "mfm.ico")) } catch { }
 
 $title = New-Object System.Windows.Forms.Label
 $title.Text = "MFM Broadcast Engine"
