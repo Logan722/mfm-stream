@@ -102,6 +102,10 @@
 
         <iframe id="media-frame" class="media-frame" allow="autoplay" title="Media player"></iframe>
 
+        <!-- Hidden lobby admitter: an owner call-object that admits knockers
+             (Daily Prebuilt can't call updateWaitingParticipant itself). -->
+        <iframe id="lobby-frame" class="lobby-frame" title="Waiting-room admit control"></iframe>
+
         <!-- Deck tabs — one page at a time (Option B) -->
         <div class="deck-tabs" id="deck-tabs">
           <button type="button" class="dt-btn active" data-page="broadcast">Broadcast</button>
@@ -427,6 +431,16 @@
         <p class="board-note" id="board-note">
           You can mute anyone; for privacy, browsers only let each person unmute themselves.
         </p>
+
+        <!-- Waiting room: ministers asking to be let in (knocking) -->
+        <div class="waiting-wrap" id="waiting-wrap" hidden>
+          <div class="waiting-head">
+            <span class="waiting-title">Asking to join <span class="waiting-count" id="waiting-count"></span></span>
+            <button type="button" class="p-btn admit" id="admit-all" hidden>Admit all</button>
+          </div>
+          <ul class="waiting-list" id="waiting-list"></ul>
+        </div>
+
         <ul class="p-list" id="plist"></ul>
       </aside>
     </div>

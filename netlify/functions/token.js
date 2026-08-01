@@ -21,11 +21,16 @@
 
    Echo/visibility design (Program Engine):
    - The engine's mic is the broadcast MIX of everyone's audio.
-     Nobody in the room may ever hear it (echo), so tokens carry
-     canReceive permissions blocking PROGRAM's audio for everyone.
-   - Dawn's choice (July 2026): ministers don't see the PROGRAM
-     tile either — participants block ALL of PROGRAM's media.
-     Hosts still receive PROGRAM's video (confidence monitor).
+     Nobody in the room may ever hear it (echo).
+   - Host / engine / monitor hold tokens, so their canReceive rules
+     are minted here (hosts get PROGRAM's video only — a confidence
+     monitor — never its audio).
+   - Participants (ministers) now hold NO token so they land in the
+     waiting room (Aug 2026). A token would auto-admit them and skip
+     the wait. Losing the token means losing its canReceive block, so
+     the host re-applies it the instant it admits each minister —
+     see applyEngineReceive() in console.js. Only an admin may set a
+     participant's canReceive, which is exactly what the host is.
    ============================================================ */
 
 "use strict";
@@ -52,7 +57,11 @@ const ROOM_PROPERTIES = {
     enable_people_ui: true,
     enable_emoji_reactions: true,
     enable_hand_raising: true,
-    enable_knocking: false,       // token holders come straight in
+    enable_knocking: true,        // waiting room: tokenless ministers knock,
+                                  // the host admits them from the People board.
+                                  // (Token holders — host/engine/monitor — still
+                                  // bypass the wait; that's why participants are
+                                  // now issued NO token — see the handler below.)
     start_video_off: false,
     start_audio_off: false,
   },
@@ -81,11 +90,13 @@ exports.handler = async (event) => {
     body.role === "host" ? "host" :
     body.role === "engine" ? "engine" :
     body.role === "monitor" ? "monitor" :
+    body.role === "warden" ? "warden" :
     "participant";
 
   const name =
     role === "engine" ? ENGINE_NAME :
     role === "monitor" ? "MONITOR" :
+    role === "warden" ? "WARDEN" :
     String(body.name || "").trim().slice(0, 40);
   if (!name) {
     return json(400, { error: "A display name is required." });
@@ -98,9 +109,10 @@ exports.handler = async (event) => {
 
   const room = cleanRoomName(body.room) || DEFAULT_ROOM;
 
-  // Host and monitor roles are guarded by HOST_KEY (the monitor is the
-  // console's own preview/program window — it receives ONLY the engine).
-  if (role === "host" || role === "monitor") {
+  // Host, monitor and warden roles are guarded by HOST_KEY. (Monitor = the
+  // console's preview/program window; warden = the console's hidden lobby
+  // admitter — an owner that admits knockers, which Prebuilt can't do itself.)
+  if (role === "host" || role === "monitor" || role === "warden") {
     const hostKey = process.env.HOST_KEY;
     if (!hostKey) {
       return json(500, {
@@ -127,6 +139,24 @@ exports.handler = async (event) => {
 
   try {
     const roomInfo = await ensureRoom(apiKey, room);
+
+    // Participants get NO token on purpose. A private room admits token holders
+    // straight through, so to place ministers in the waiting room they must join
+    // tokenless and knock (join.js passes the name via join({ userName })). The
+    // echo-prevention the token used to carry (block PROGRAM's mixed mic) is
+    // re-applied by the host the moment it admits them — the host is a meeting
+    // admin, and only an admin may change a participant's canReceive. See
+    // applyEngineReceive() in console.js.
+    if (role === "participant") {
+      return json(200, {
+        token: null,
+        url: roomInfo.url,
+        room: roomInfo.name,
+        role: role,
+        knock: true,
+      });
+    }
+
     const token = await mintTokenForRole(apiKey, role, roomInfo.name, name, body.hidden);
 
     return json(200, {
@@ -149,7 +179,21 @@ exports.handler = async (event) => {
 async function ensureRoom(apiKey, roomName) {
   // Does the room already exist?
   const getRes = await daily(apiKey, "GET", "/rooms/" + encodeURIComponent(roomName));
-  if (getRes.status === 200) return getRes.data;
+  if (getRes.status === 200) {
+    // Rooms created before the waiting room existed have knocking OFF. Turn it
+    // on in place so ministers can knock. Harmless when it's already enabled.
+    // If the update fails we proceed with the room as-is: host/engine/monitor
+    // (token holders) still get in, but tokenless ministers would be refused
+    // by Daily until knocking is on — rare, since the same key just read it.
+    const cfg = getRes.data && getRes.data.config;
+    if (!cfg || cfg.enable_knocking !== true) {
+      const upd = await daily(apiKey, "POST", "/rooms/" + encodeURIComponent(roomName), {
+        properties: { enable_knocking: true },
+      });
+      if (upd.status === 200) return upd.data;
+    }
+    return getRes.data;
+  }
 
   if (getRes.status !== 404) {
     throw new Error("Daily rooms lookup failed (" + getRes.status + "): " + summarize(getRes.data));
@@ -212,6 +256,25 @@ async function mintTokenForRole(apiKey, role, roomName, userName, hidden) {
     } catch (err) {
       console.error("monitor mint with canReceive failed — retrying plain:", err);
       return mintToken(apiKey, { ...base, user_id: "mfm-monitor" });
+    }
+  }
+
+  if (role === "warden") {
+    // The console's hidden lobby admitter. It must be an OWNER so it may admit
+    // knockers (updateWaitingParticipant is owner-only AND unavailable in Daily
+    // Prebuilt — hence this separate call-object connection). Presence-hidden so
+    // ministers never see a tile; receives no media (control only). If Daily
+    // rejects the hidden permission, fall back to a visible owner — an inert
+    // tile is better than losing admit control.
+    const wbase = { ...base, is_owner: true, user_id: "mfm-warden" };
+    try {
+      return await mintToken(apiKey, {
+        ...wbase,
+        permissions: { hasPresence: false, canReceive: { base: false } },
+      });
+    } catch (err) {
+      console.error("warden hidden mint failed — visible owner fallback:", err);
+      return mintToken(apiKey, wbase);
     }
   }
 

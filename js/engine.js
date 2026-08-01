@@ -275,8 +275,13 @@
   function syncParticipant(p) {
     if (!p || p.local) return;
     // Never composite or mix a FELLOW engine (someone left a second engine
-    // running) — that way lies a mirror hall and doubled audio.
-    if (p.user_name === "PROGRAM" || p.user_id === "mfm-program-engine") {
+    // running) — that way lies a mirror hall and doubled audio. Same for the
+    // console's system connections (monitor, lobby warden): they're normally
+    // presence-hidden, but if one ever falls back to visible it must never
+    // reach the stream.
+    if (p.user_name === "PROGRAM" || p.user_id === "mfm-program-engine" ||
+        p.user_name === "MONITOR" || p.user_id === "mfm-monitor" ||
+        p.user_name === "WARDEN" || p.user_id === "mfm-warden") {
       dropParticipant(p.session_id);
       return;
     }

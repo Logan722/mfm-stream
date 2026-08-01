@@ -736,6 +736,119 @@ a.p-btn { text-decoration: none; display: inline-block; }
 .p-btn.danger:hover:not(:disabled) { background: rgba(232, 93, 38, 0.12); color: #ffd9c4; }
 .p-btn.danger.confirming { background: var(--fire); color: #fff8ef; border-color: var(--fire); }
 
+/* Filled gold "Admit" — the affirmative action in the waiting room */
+.p-btn.admit { color: var(--bg-navy-deep); background: var(--gold); border-color: var(--gold); font-weight: 700; }
+.p-btn.admit:hover:not(:disabled) { background: var(--gold-light); border-color: var(--gold-light); color: var(--bg-navy-deep); }
+
+/* ---------- Waiting room (knocking) ---------- */
+.waiting-wrap {
+  margin: 10px 12px 4px;
+  border: 1px solid var(--gold);
+  border-radius: 10px;
+  background: var(--gold-glow);
+  overflow: hidden;
+  /* Gently breathes the whole time someone is waiting, so an unattended board
+     still draws the eye. A fresh knock adds a brighter one-shot flash. */
+  animation: mfm-wait-breathe 1.8s ease-in-out infinite;
+}
+
+.waiting-wrap.knock-flash { animation: mfm-knock-flash 1.1s ease-out 1, mfm-wait-breathe 1.8s ease-in-out infinite 1.1s; }
+
+@keyframes mfm-wait-breathe {
+  0%   { box-shadow: 0 0 0 0 rgba(201, 149, 44, 0.0); }
+  50%  { box-shadow: 0 0 14px 1px rgba(201, 149, 44, 0.4); }
+  100% { box-shadow: 0 0 0 0 rgba(201, 149, 44, 0.0); }
+}
+
+@keyframes mfm-knock-flash {
+  0%   { box-shadow: 0 0 0 0 rgba(232, 93, 38, 0.0); background: rgba(232, 93, 38, 0.28); }
+  30%  { box-shadow: 0 0 22px 4px rgba(232, 93, 38, 0.6); background: rgba(201, 149, 44, 0.28); }
+  100% { box-shadow: 0 0 0 0 rgba(201, 149, 44, 0.0); background: var(--gold-glow); }
+}
+
+/* Small live dot in the header, pulsing while anyone waits */
+.waiting-title::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: var(--gold);
+  vertical-align: baseline;
+  animation: mfm-knock-pulse 1.6s ease-out infinite;
+}
+
+.w-note {
+  padding: 4px 12px 8px;
+  font-size: 0.72rem;
+  color: var(--text-dim-navy);
+  font-style: italic;
+}
+
+.waiting-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 12px;
+  border-bottom: 1px solid rgba(201, 149, 44, 0.18);
+}
+
+.waiting-title {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.74rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold-light);
+}
+
+.waiting-count { color: var(--cream); }
+
+.waiting-list { list-style: none; margin: 0; padding: 4px 0; }
+
+.w-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+}
+
+.w-name {
+  min-width: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--cream);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.w-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+/* People toggle draws the eye when someone is knocking */
+body.has-knocks #board-toggle { position: relative; }
+body.has-knocks #board-toggle::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 0 0 rgba(201, 149, 44, 0.6);
+  animation: mfm-knock-pulse 1.6s ease-out infinite;
+}
+
+@keyframes mfm-knock-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(201, 149, 44, 0.55); }
+  70%  { box-shadow: 0 0 0 7px rgba(201, 149, 44, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(201, 149, 44, 0); }
+}
+
 /* ---------- Deck panel form elements ---------- */
 .b-hint {
   font-size: 0.72rem;
@@ -979,6 +1092,19 @@ body.capture-wide #portrait-canvas {
   width: 160px;
   height: 90px;
   opacity: 0.02;
+  border: 0;
+  pointer-events: none;
+}
+
+/* The lobby warden renders nothing — keep it attached (not display:none, which
+   can throttle its Daily connection) but out of sight and out of the way. */
+.lobby-frame {
+  position: fixed;
+  left: 1px;
+  bottom: 1px;
+  width: 1px;
+  height: 1px;
+  opacity: 0.01;
   border: 0;
   pointer-events: none;
 }

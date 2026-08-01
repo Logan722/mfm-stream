@@ -41,6 +41,11 @@
     plist: document.getElementById("plist"),
     muteAllBtn: document.getElementById("mute-all"),
     boardNote: document.getElementById("board-note"),
+    // Waiting room (knocking): ministers who are asking to be let in
+    waitingWrap: document.getElementById("waiting-wrap"),
+    waitingList: document.getElementById("waiting-list"),
+    waitingCount: document.getElementById("waiting-count"),
+    admitAllBtn: document.getElementById("admit-all"),
     // Live chips
     liveChip: document.getElementById("live-chip"),
     liveTimer: document.getElementById("live-timer"),
@@ -116,6 +121,7 @@
   var joinedRoom = "sanctuary";
   var renderQueued = false;
   var confirmingEject = {}; // session_id -> timeout handle
+  var waiting = {};         // waiting-participant id -> { id, name } (knocking)
   var personVol = {};       // session_id -> fader value (0-150), console-side memory
   var volTimers = {};
 
@@ -442,6 +448,11 @@
           recv.byUserId[ENGINE_UID] = { video: true, screenVideo: true, audio: false, screenAudio: false };
           callFrame.updateParticipant("local", { updatePermissions: { canReceive: recv } });
         } catch (e) { /* token-side rules still apply */ }
+        // Ministers now join tokenless (waiting room), so they arrive WITHOUT
+        // the token's echo block — re-apply it to everyone already in the room.
+        allParticipants().forEach(applyEngineReceive);
+        // Spin up the hidden warden that watches the lobby and admits knockers.
+        startWarden();
         pingEngine();
         queueRender();
       })
@@ -455,6 +466,9 @@
           }
           updateEnginePanel();
         }
+        // A freshly admitted minister has default canReceive — block PROGRAM's
+        // mixed mic (echo) the instant they land. See applyEngineReceive().
+        applyEngineReceive(ev && ev.participant);
         queueRender();
       })
       .on("participant-updated", queueRender)
@@ -478,6 +492,11 @@
         }
         queueRender();
       })
+      // NOTE: the waiting room (knocking) is driven by the hidden "warden"
+      // connection (lobby.html), NOT this Prebuilt frame — Daily's
+      // updateWaitingParticipant is not available in Prebuilt, so a call-object
+      // owner in an iframe both watches the lobby and performs admit/deny. See
+      // startWarden() / handleWardenList() below.
       .on("app-message", function (ev) {
         var d = ev && ev.data;
         if (d && d.t === "mfm-engine" && d.state) {
@@ -602,9 +621,13 @@
       try { callFrame.destroy(); } catch (e) { /* already gone */ }
       callFrame = null;
     }
+    stopWarden();
     document.body.classList.remove("in-call");
     if (els.stageWrap) els.stageWrap.hidden = true;
     if (els.plist) els.plist.innerHTML = "";
+    waiting = {};
+    prevWaitIds = {};
+    renderWaiting();
     setBusy(false);
   }
 
@@ -630,9 +653,10 @@
       (p.user_id === ENGINE_UID || p.user_name === "PROGRAM");
   }
 
-  function isSystem(p) { // engine or the console's own monitor connection
+  function isSystem(p) { // engine, the console's own monitor, or the lobby warden
     return isEngine(p) ||
-      (!!p && !p.local && (p.user_id === "mfm-monitor" || p.user_name === "MONITOR" || p.user_name === "MEDIA"));
+      (!!p && !p.local && (p.user_id === "mfm-monitor" || p.user_name === "MONITOR" ||
+        p.user_name === "MEDIA" || p.user_id === "mfm-warden" || p.user_name === "WARDEN"));
   }
 
   function engineParticipant() {
@@ -963,6 +987,163 @@
     return (p.user_name || "Guest").slice(0, 40);
   }
 
+  /* ---------- Echo block for tokenless ministers ----------
+     A minister now joins WITHOUT a token (they knock into the waiting room),
+     so they arrive with default canReceive and would hear PROGRAM's mic — which
+     is the whole-room MIX, i.e. an echo of everyone including themselves. The
+     token used to block that; the host re-applies it here. This works only
+     because the host is a meeting admin: Daily lets an admin set another
+     participant's canReceive, but a participant may NOT restrict its own, and
+     setSubscribedTracks throws while auto-subscribe is on — so the block has to
+     live on the host side. Co-hosts keep PROGRAM's VIDEO (confidence monitor),
+     never its audio; everyone else receives none of PROGRAM's media. */
+  function applyEngineReceive(p) {
+    if (!callFrame || !p || p.local || p.owner || isSystem(p)) return;
+    var recv = { base: true, byUserId: {} };
+    recv.byUserId[ENGINE_UID] = isCohost(p)
+      ? { video: true, screenVideo: true, audio: false, screenAudio: false }
+      : false; // block ALL of PROGRAM's media for a plain minister
+    try {
+      callFrame.updateParticipant(p.session_id, { updatePermissions: { canReceive: recv } });
+    } catch (e) { /* a later participant-updated / re-render will retry */ }
+  }
+
+  /* ---------- Waiting room (knocking) — driven by the warden iframe ----------
+     Daily's admit/deny methods don't exist in Prebuilt, so a hidden OWNER
+     call-object (lobby.html, in #lobby-frame) watches the lobby and performs the
+     admit. It posts the current waiting list here; we render it with buttons and
+     post the host's decisions back. The warden's participant ids are the ones it
+     will admit with, so its list is the single source of truth. */
+  var wardenReady = false;
+  var wardenErr = "";
+  var prevWaitIds = {};   // ids shown last time — a brand-new id = a fresh knock
+
+  // Set the waiting list from the warden's report (array of {id, name}).
+  function handleWardenList(list) {
+    var next = {};
+    (list || []).forEach(function (w) {
+      if (w && w.id) next[w.id] = { id: w.id, name: (w.name || "Guest").slice(0, 40) };
+    });
+    // Alert on any id we've never shown — catches the case where one person
+    // cancels as another knocks (count unchanged), which a count check misses.
+    var fresh = Object.keys(next).some(function (id) { return !prevWaitIds[id]; });
+    prevWaitIds = {};
+    Object.keys(next).forEach(function (id) { prevWaitIds[id] = true; });
+    waiting = next;
+    renderWaiting();
+    if (fresh) knockAlert(); // a NEW person is asking — make it impossible to miss
+  }
+
+  function decideWaiting(id, grant) {
+    // Optimistic: drop it so a double-tap can't fire twice. The warden's next
+    // list (after the person is admitted/removed) is authoritative anyway.
+    delete waiting[id];
+    renderWaiting();
+    wardenPost({ t: "mfm-warden-cmd", action: grant ? "admit" : "deny", id: id });
+  }
+
+  function renderWaiting() {
+    if (!els.waitingWrap || !els.waitingList) return;
+    var ids = Object.keys(waiting);
+
+    if (ids.length === 0) {
+      els.waitingWrap.hidden = true;
+      els.waitingList.innerHTML = "";
+      if (els.admitAllBtn) els.admitAllBtn.hidden = true;
+      document.body.classList.remove("has-knocks");
+      return;
+    }
+
+    els.waitingWrap.hidden = false;
+    document.body.classList.add("has-knocks"); // pulses the People toggle
+    if (els.waitingCount) els.waitingCount.textContent = "(" + ids.length + ")";
+    if (els.admitAllBtn) els.admitAllBtn.hidden = ids.length < 2;
+
+    els.waitingList.innerHTML = "";
+    ids.forEach(function (id) {
+      var w = waiting[id];
+      var li = document.createElement("li");
+      li.className = "w-row";
+
+      var nm = document.createElement("span");
+      nm.className = "w-name";
+      nm.textContent = w.name || "Guest";
+      li.appendChild(nm);
+
+      var acts = document.createElement("div");
+      acts.className = "w-actions";
+
+      var admit = document.createElement("button");
+      admit.type = "button";
+      admit.className = "p-btn admit";
+      admit.textContent = "Admit";
+      admit.disabled = !wardenReady;
+      (function (wid) {
+        admit.addEventListener("click", function () { decideWaiting(wid, true); });
+      })(id);
+      acts.appendChild(admit);
+
+      var deny = document.createElement("button");
+      deny.type = "button";
+      deny.className = "p-btn danger";
+      deny.textContent = "Deny";
+      deny.disabled = !wardenReady;
+      (function (wid) {
+        deny.addEventListener("click", function () { decideWaiting(wid, false); });
+      })(id);
+      acts.appendChild(deny);
+
+      li.appendChild(acts);
+      els.waitingList.appendChild(li);
+    });
+
+    if (!wardenReady) {
+      var note = document.createElement("li");
+      note.className = "w-note";
+      note.textContent = wardenErr || "Connecting admit control…";
+      els.waitingList.appendChild(note);
+    }
+  }
+
+  /* A new knock just arrived — flash the strip and play a soft chime so the host
+     notices even when looking at the video, not the board (Dawn, Aug 2026). */
+  function knockAlert() {
+    if (els.waitingWrap) {
+      els.waitingWrap.classList.remove("knock-flash");
+      void els.waitingWrap.offsetWidth; // restart the CSS animation
+      els.waitingWrap.classList.add("knock-flash");
+    }
+    // Skip the audible chime while broadcasting — with the host mic open it
+    // could bleed through the speakers into the on-air mix. The strong visual
+    // flash + breathing glow still fire, which is the cue Dawn asked for.
+    if (!bc.live) knockChime();
+  }
+
+  var knockAC = null;
+  function knockChime() {
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      if (!knockAC) knockAC = new AC();
+      if (knockAC.state === "suspended") knockAC.resume();
+      var t0 = knockAC.currentTime;
+      // A gentle two-note rise (G5 → C6) — bright but not alarming.
+      [[784, 0], [1047, 0.16]].forEach(function (pair) {
+        var osc = knockAC.createOscillator();
+        var g = knockAC.createGain();
+        osc.type = "sine";
+        osc.frequency.value = pair[0];
+        var st = t0 + pair[1];
+        g.gain.setValueAtTime(0, st);
+        g.gain.linearRampToValueAtTime(0.14, st + 0.03);
+        g.gain.exponentialRampToValueAtTime(0.0008, st + 0.28);
+        osc.connect(g).connect(knockAC.destination);
+        osc.start(st);
+        osc.stop(st + 0.3);
+      });
+    } catch (e) { /* audio optional — the visual flash still fires */ }
+  }
+
   function renderBoard() {
     if (!els.plist || !callFrame) return;
 
@@ -1161,6 +1342,87 @@
       setTimeout(function () { els.muteAllBtn.textContent = "Mute all"; }, 2200);
     });
   }
+
+  /* ---------- Admit everyone who's waiting ---------- */
+  if (els.admitAllBtn) {
+    els.admitAllBtn.addEventListener("click", function () {
+      waiting = {};
+      renderWaiting();
+      wardenPost({ t: "mfm-warden-cmd", action: "admit-all" });
+    });
+  }
+
+  /* ---------- The hidden "warden" (lobby.html in #lobby-frame) ----------
+     A presence-hidden OWNER call-object. It exists only to admit/deny knockers,
+     because Daily's updateWaitingParticipant isn't callable from the Prebuilt
+     console frame. It publishes nothing and receives nothing — pure control. */
+  var wardenStarted = false;
+
+  function wardenPost(msg) {
+    var f = document.getElementById("lobby-frame");
+    if (f && f.contentWindow) {
+      try { f.contentWindow.postMessage(msg, window.location.origin); } catch (e) { /* fine */ }
+    }
+  }
+
+  function startWarden() {
+    var frame = document.getElementById("lobby-frame");
+    if (!frame || wardenStarted) return;
+    wardenStarted = true;
+    wardenReady = false;
+    wardenErr = "";
+    fetch("/api/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        role: "warden",
+        room: joinedRoom,
+        hostKey: els.hostKey ? els.hostKey.value : "",
+      }),
+    })
+      .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, d: d }; }); })
+      .then(function (r) {
+        if (!r.ok || !wardenStarted) {
+          wardenErr = "Admit control couldn't start (host key?). You can still deny by leaving people waiting.";
+          renderWaiting();
+          return;
+        }
+        frame.onload = function () {
+          wardenPost({ t: "mfm-warden-join", url: r.d.url, token: r.d.token });
+        };
+        frame.src = "/lobby.html?ts=" + Date.now();
+      })
+      .catch(function () {
+        wardenErr = "Admit control is offline — check your connection.";
+        renderWaiting();
+      });
+  }
+
+  function stopWarden() {
+    wardenStarted = false;
+    wardenReady = false;
+    var frame = document.getElementById("lobby-frame");
+    if (frame) { frame.onload = null; frame.src = "about:blank"; }
+  }
+
+  window.addEventListener("message", function (ev) {
+    var f = document.getElementById("lobby-frame");
+    if (!f || ev.source !== f.contentWindow) return;
+    var d = ev.data;
+    if (!d || d.t !== "mfm-warden") return;
+    if (d.kind === "ready") {
+      wardenReady = true;
+      wardenErr = "";
+      renderWaiting();
+    } else if (d.kind === "list") {
+      wardenReady = true;
+      handleWardenList(d.waiting);
+    } else if (d.kind === "error") {
+      wardenReady = false;
+      wardenErr = d.msg || "Admit control error — refresh the console.";
+      renderWaiting();
+    }
+  });
 
   /* ---------- Invite link ---------- */
   if (els.copyLinkBtn) {

@@ -94,6 +94,10 @@
     showError("");
     var name = els.name.value.trim().slice(0, 40);
     if (!name) { showError("Please enter your name."); return; }
+    if (!isHost && name.toUpperCase() === "PROGRAM") {
+      showError("That name is reserved for the broadcast engine. Please pick another.");
+      return;
+    }
 
     var payload = { role: cfg.role, name: name, room: currentRoom() };
     if (isHost) {
@@ -142,9 +146,16 @@
     if (els.stageWrap) els.stageWrap.hidden = false;
     if (els.meLabel) els.meLabel.textContent = name;
 
-    callFrame = Factory.createFrame(els.stage, {
+    // Ministers arrive WITHOUT a token (grant.token is null) so Daily's
+    // knocking places them in the waiting room until the host admits them.
+    // Daily Prebuilt shows the "asking to join / waiting" screen natively; the
+    // display name travels via join({ userName }) below since there's no token
+    // to carry it. Host/engine tokens (if this page is ever used that way) still
+    // come straight in.
+    var tokenless = !grant.token;
+
+    var frameOpts = {
       url: grant.url,
-      token: grant.token,
       showLeaveButton: true,
       showFullscreenButton: true,
       // Quality pass (July 2026): capture at 720p so the Program Engine has
@@ -173,7 +184,10 @@
           supportiveText: "#8899b8",
         },
       },
-    });
+    };
+    if (grant.token) frameOpts.token = grant.token;
+
+    callFrame = Factory.createFrame(els.stage, frameOpts);
 
     callFrame.on("left-meeting", endCall);
     callFrame.on("error", function (ev) {
@@ -181,7 +195,8 @@
       endCall();
     });
 
-    callFrame.join()
+    // Tokenless join carries the display name here (no token to hold it).
+    callFrame.join(tokenless ? { userName: name } : {})
       .then(function () {
         // Send the strongest simulcast layers the connection allows.
         try {

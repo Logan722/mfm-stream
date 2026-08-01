@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lobby</title>
+<meta name="robots" content="noindex">
+<style>html,body{margin:0;height:100%;background:#0a101c}</style>
+</head>
+<body>
+<!-- The console's hidden "warden": a presence-hidden OWNER call-object whose only
+     job is to admit/deny people knocking at the waiting room. This lives in its
+     own page (one Daily instance per window) because the console's Prebuilt frame
+     cannot call updateWaitingParticipant — that method is owner-only AND not
+     available in Daily Prebuilt. It publishes nothing and shows nothing. -->
+<script crossorigin src="https://unpkg.com/@daily-co/daily-js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var call = null;
+  var joined = false;
+  var parentOrigin = null; // learned from the console's join message
+  var resendTimer = null;
+
+  function toParent(msg) {
+    try { window.parent.postMessage(msg, parentOrigin || "*"); } catch (e) { /* fine */ }
+  }
+
+  function currentList() {
+    var out = [];
+    if (!call || !call.waitingParticipants) return out;
+    var wp = {};
+    try { wp = call.waitingParticipants() || {}; } catch (e) { return out; }
+    Object.keys(wp).forEach(function (id) {
+      var w = wp[id] || {};
+      out.push({ id: id, name: (w.name || "Guest") });
+    });
+    return out;
+  }
+
+  function sendList() {
+    if (!joined) return;
+    toParent({ t: "mfm-warden", kind: "list", waiting: currentList() });
+  }
+
+  function admit(id, grant) {
+    if (!call || !id) return;
+    try {
+      call.updateWaitingParticipant(id, { grantRequestedAccess: !!grant });
+    } catch (e) {
+      toParent({ t: "mfm-warden", kind: "error", msg: "Admit failed — refresh the console." });
+    }
+  }
+
+  function admitAll() {
+    if (!call) return;
+    // Loop the singular admit — it's the reliably-correct call-object method;
+    // the bulk updateWaitingParticipants takes an updates OBJECT (not "*", opts),
+    // an easy footgun, so we avoid it.
+    currentList().forEach(function (w) { admit(w.id, true); });
+  }
+
+  window.addEventListener("message", function (ev) {
+    // Only the same-origin console (host.html) drives the warden.
+    if (ev.origin !== location.origin) return;
+    var d = ev.data;
+    if (!d) return;
+
+    // Console → warden: join the room, then admit/deny commands.
+    if (d.t === "mfm-warden-join") {
+      if (call) return; // already joined
+      parentOrigin = ev.origin || null;
+      var Daily = window.Daily || window.DailyIframe;
+      if (!Daily || !Daily.createCallObject) {
+        toParent({ t: "mfm-warden", kind: "error", msg: "Video library failed to load — refresh the console." });
+        return;
+      }
+      call = Daily.createCallObject({
+        videoSource: false,
+        audioSource: false,
+        subscribeToTracksAutomatically: false, // control-only: receive no media
+      });
+      call
+        .on("waiting-participant-added", sendList)
+        .on("waiting-participant-updated", sendList)
+        .on("waiting-participant-removed", sendList)
+        .on("error", function (e) {
+          toParent({ t: "mfm-warden", kind: "error", msg: (e && e.errorMsg) || "Lobby connection error." });
+        });
+      call.join({ url: d.url, token: d.token, startVideoOff: true, startAudioOff: true })
+        .then(function () {
+          joined = true;
+          toParent({ t: "mfm-warden", kind: "ready" });
+          sendList(); // catch anyone who knocked before we joined
+          // Safety net: re-report the list periodically in case an event is missed.
+          if (resendTimer) clearInterval(resendTimer);
+          resendTimer = setInterval(sendList, 4000);
+        })
+        .catch(function () {
+          toParent({ t: "mfm-warden", kind: "error", msg: "Admit control couldn't join the room — refresh the console." });
+        });
+      return;
+    }
+
+    if (d.t === "mfm-warden-cmd") {
+      if (d.action === "admit") admit(d.id, true);
+      else if (d.action === "deny") admit(d.id, false);
+      else if (d.action === "admit-all") admitAll();
+    }
+  });
+})();
+</script>
+</body>
+</html>
